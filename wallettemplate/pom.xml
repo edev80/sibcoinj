@@ -58,7 +58,7 @@
     <dependencies>
         <dependency>
             <groupId>org.bitcoinj</groupId>
-            <artifactId>darkcoinj-core</artifactId>
+            <artifactId>sibcoinj-core</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
         <dependency>

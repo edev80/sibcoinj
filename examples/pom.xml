@@ -20,20 +20,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.bitcoinj</groupId>
-        <artifactId>darkcoinj-parent</artifactId>
+        <artifactId>sibcoinj-parent</artifactId>
         <version>0.13.2</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>darkcoinj-examples</artifactId>
+    <artifactId>sibcoinj-examples</artifactId>
 
-    <name>darkcoinj Examples</name>
-    <description>A collection of examples using the darkcoinj library</description>
+    <name>sibcoinj Examples</name>
+    <description>A collection of examples using the sibcoinj library</description>
 
     <dependencies>
         <dependency>
             <groupId>org.bitcoinj</groupId>
-            <artifactId>darkcoinj-core</artifactId>
+            <artifactId>sibcoinj-core</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
         <dependency>
