@@ -17,8 +17,11 @@
 package org.bitcoinj.params;
 
 import org.bitcoinj.core.Block;
+import org.bitcoinj.core.CoinDefinition;
 
 import java.math.BigInteger;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Network parameters for the regression test mode of bitcoind in which all blocks are trivially solvable.
@@ -28,11 +31,16 @@ public class RegTestParams extends TestNet2Params {
 
     public RegTestParams() {
         super();
+        packetMagic = CoinDefinition.regtestPacketMagic;        
         interval = 10000;
         maxTarget = MAX_TARGET;
         subsidyDecreaseBlockCount = 150;
-        port = 18444;
+        port = CoinDefinition.RegTestPort;
         id = ID_REGTEST;
+        
+        String genesisHash = genesisBlock.getHashAsString();
+        if(CoinDefinition.supportsRegTest)
+            checkState(genesisHash.equals(CoinDefinition.regtestGenesisHash));        
     }
 
     @Override
@@ -47,9 +55,9 @@ public class RegTestParams extends TestNet2Params {
         synchronized (RegTestParams.class) {
             if (genesis == null) {
                 genesis = super.getGenesisBlock();
-                genesis.setNonce(2);
-                genesis.setDifficultyTarget(0x207fFFFFL);
-                genesis.setTime(1296688602L);
+                genesis.setNonce(CoinDefinition.regtestGenesisBlockNonce);
+                genesis.setDifficultyTarget(CoinDefinition.regtestGenesisBlockDifficultyTarget);
+                genesis.setTime(CoinDefinition.regtestGenesisBlockTime);
                 //checkState(genesis.getHashAsString().toLowerCase().equals("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
             }
             return genesis;

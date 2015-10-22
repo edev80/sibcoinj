@@ -5,6 +5,13 @@ import org.bitcoinj.core.Sha256Hash;
 import fr.cryptohash.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.ubmb.jstribog.Stribog512;
+import ru.ubmb.jstribog.StribogProvider;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.Security;
+
 
 /**
  * Created by Hash Engineering on 4/24/14 for the X11 algorithm
@@ -43,7 +50,9 @@ public class X11 {
     public static byte[] x11Digest(byte[] input) {
         //long start = System.currentTimeMillis();
         try {
-            return native_library_loaded ? x11_native(input) : x11(input);
+            // we've added GOST into x11(), so x11_native can't be used anymore
+            return x11(input); 
+            //return native_library_loaded ? x11_native(input) : x11(input);
             /*long start = System.currentTimeMillis();
             byte [] result = x11_native(input);
             long end1 = System.currentTimeMillis();
@@ -66,7 +75,7 @@ public class X11 {
     static byte [] x11(byte header[])
     {
         //Initialize
-        Sha512Hash[] hash = new Sha512Hash[11];
+        Sha512Hash[] hash = new Sha512Hash[12];
 
         //Run the chain of algorithms
         BLAKE512 blake512 = new BLAKE512();
@@ -86,22 +95,32 @@ public class X11 {
 
         Keccak512 keccak = new Keccak512();
         hash[5] = new Sha512Hash(keccak.digest(hash[4].getBytes()));
+        
+        try {
+            if (Security.getProvider("JStribog") == null) {
+                Security.addProvider(new StribogProvider());
+            }
+            MessageDigest md = MessageDigest.getInstance("Stribog512");
+            hash[6] = new Sha512Hash(md.digest(hash[5].getBytes()));
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }        
 
         Luffa512 luffa = new Luffa512();
-        hash[6] = new Sha512Hash(luffa.digest(hash[5].getBytes()));
+        hash[7] = new Sha512Hash(luffa.digest(hash[7].getBytes()));
 
         CubeHash512 cubehash = new CubeHash512();
-        hash[7] = new Sha512Hash(cubehash.digest(hash[6].getBytes()));
+        hash[8] = new Sha512Hash(cubehash.digest(hash[7].getBytes()));
 
         SHAvite512 shavite = new SHAvite512();
-        hash[8] = new Sha512Hash(shavite.digest(hash[7].getBytes()));
+        hash[9] = new Sha512Hash(shavite.digest(hash[8].getBytes()));
 
         SIMD512 simd = new SIMD512();
-        hash[9] = new Sha512Hash(simd.digest(hash[8].getBytes()));
+        hash[10] = new Sha512Hash(simd.digest(hash[9].getBytes()));
 
         ECHO512 echo = new ECHO512();
-        hash[10] = new Sha512Hash(echo.digest(hash[9].getBytes()));
+        hash[11] = new Sha512Hash(echo.digest(hash[10].getBytes()));
 
-        return hash[10].trim256().getBytes();
+        return hash[11].trim256().getBytes();
     }
 }
