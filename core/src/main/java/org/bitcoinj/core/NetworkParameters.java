@@ -108,11 +108,11 @@ public abstract class NetworkParameters implements Serializable {
 
     protected NetworkParameters() {
         alertSigningKey = SATOSHI_KEY;
-        genesisBlock = createGenesis(this);
+        createGenesis(this);
     }
     //TODO:  put these bytes into the CoinDefinition
-    private static Block createGenesis(NetworkParameters n) {
-        Block genesisBlock = new Block(n);
+    protected void createGenesis(NetworkParameters n) {
+        genesisBlock = new Block(n);
         Transaction t = new Transaction(n);
         try {
             // A script containing the difficulty bits and the following message:
@@ -131,7 +131,6 @@ public abstract class NetworkParameters implements Serializable {
             throw new RuntimeException(e);
         }
         genesisBlock.addTransaction(t);
-        return genesisBlock;
     }
 
 

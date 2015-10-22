@@ -53,23 +53,22 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
         addressHeader = CoinDefinition.testnetAddressHeader;
         p2shHeader = CoinDefinition.testnetp2shHeader;
         acceptableAddressCodes = new int[] { addressHeader, p2shHeader };
-        dumpedPrivateKeyHeader = 128 + CoinDefinition.testnetAddressHeader;
-        genesisBlock.setTime(CoinDefinition.testnetGenesisBlockTime);
-        genesisBlock.setDifficultyTarget(CoinDefinition.testnetGenesisBlockDifficultyTarget);
-        genesisBlock.setNonce(CoinDefinition.testnetGenesisBlockNonce);
-        spendableCoinbaseDepth = 100;
-        subsidyDecreaseBlockCount = CoinDefinition.subsidyDecreaseBlockCount;
-        String genesisHash = genesisBlock.getHashAsString();
+        dumpedPrivateKeyHeader = CoinDefinition.testnetDumpedPrivateKeyHeader;
 
-        if(CoinDefinition.supportsTestNet)
-            checkState(genesisHash.equals(CoinDefinition.testnetGenesisHash));
+        spendableCoinbaseDepth = CoinDefinition.spendableCoinbaseDepth;
+        subsidyDecreaseBlockCount = CoinDefinition.subsidyDecreaseBlockCount;
+
+        CoinDefinition.initTestnetCheckpoints(checkpoints);
+
         alertSigningKey = HEX.decode(CoinDefinition.TESTNET_SATOSHI_KEY);
 
         dnsSeeds = CoinDefinition.testnetDnsSeeds;
 
-        addrSeeds = null;
-        bip32HeaderPub = 0x043587CF;
-        bip32HeaderPriv = 0x04358394;
+        addrSeeds = new int[] {
+                0xbc419529,
+        };
+        bip32HeaderPub = 0x043587CF;    // chainparams.cpp base58Prefixes[EXT_PUBLIC_KEY]
+        bip32HeaderPriv = 0x04358394;   // chainparams.cpp base58Prefixes[EXT_SECRET_KEY]
     }
 
     private static TestNet3Params instance;
@@ -78,6 +77,18 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
             instance = new TestNet3Params();
         }
         return instance;
+    }
+
+    @Override
+    protected void createGenesis(NetworkParameters n) {
+        super.createGenesis(n);
+        genesisBlock.setNonce(CoinDefinition.testnetGenesisBlockNonce);
+        genesisBlock.setDifficultyTarget(CoinDefinition.testnetGenesisBlockDifficultyTarget);
+        genesisBlock.setTime(CoinDefinition.testnetGenesisBlockTime);
+
+        String genesisHash = genesisBlock.getHashAsString();
+        if(CoinDefinition.supportsTestNet)
+            checkState(genesisHash.equals(CoinDefinition.testnetGenesisHash));
     }
 
     @Override

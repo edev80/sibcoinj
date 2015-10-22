@@ -154,6 +154,7 @@ public class CoinDefinition {
     public static final boolean supportsRegTest = true;    
     public static final int testnetAddressHeader = 125;             //base58.h CBitcoinAddress::PUBKEY_ADDRESS_TEST
     public static final int testnetp2shHeader = 100;             //base58.h CBitcoinAddress::SCRIPT_ADDRESS_TEST
+    public static final int testnetDumpedPrivateKeyHeader = 125;    
     public static final long testnetPacketMagic = 0xcee2caff;      //
     public static final String testnetGenesisHash = "00000617791d0e19f524387f67e558b2a928b670b9a3b387ae003ad7f9093017";
     static public long testnetGenesisBlockDifficultyTarget = (0x1e0ffff0L);         //main.cpp: LoadBlockIndex
