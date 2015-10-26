@@ -78,8 +78,8 @@ abstract class Stribog extends MessageDigestSpi{
         int[] result = new int[a.length];
         int r = 0;
         for (int i = a.length - 1; i >= 0; i--) {
-            result[i] = (a[i] + b[i] + r) & 0xFF;
-            r = ((a[i] + b[i]) >> 8) & 0xFF;
+            r = (a[i] + b[i] + (r >> 8));
+            result[i] = r & 0xFF;
         }
         return result;
     }
@@ -179,13 +179,13 @@ abstract class Stribog extends MessageDigestSpi{
             System.arraycopy(M, 0, m, 63 - l + 1, l);
         }
        
-        h = gN(N, h, m);        
+        h = gN(N, h, m);   
         int[] bv = new int[64];
         bv[62] = (l * 8) >> 8;
         bv[63] = (l * 8) & 0xFF;
-        N = add(N, bv);        
+        N = add(N, bv);    
         Sigma = add(Sigma, m);        
-        h = gN(Data.bv00, h, N);        
+        h = gN(Data.bv00, h, N);  
         h = gN(Data.bv00, h, Sigma);
         return h;
     }
