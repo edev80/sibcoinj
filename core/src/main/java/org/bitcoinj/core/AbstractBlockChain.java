@@ -850,7 +850,8 @@ public abstract class AbstractBlockChain {
 
         if (DiffMode == 1) { checkDifficultyTransitions_V1(storedPrev, nextBlock); return; }
         else if (DiffMode == 2) { checkDifficultyTransitions_V2(storedPrev, nextBlock); return;}
-        else if (DiffMode == 3) { DarkGravityWave(storedPrev, nextBlock); return;}
+        // Sibcoin requires DarkGravityWave3 in both cases
+        else if (DiffMode == 3) { DarkGravityWave3(storedPrev, nextBlock); return;}
         else if (DiffMode == 4) { DarkGravityWave3(storedPrev, nextBlock); return; }
 
         DarkGravityWave3(storedPrev, nextBlock);
