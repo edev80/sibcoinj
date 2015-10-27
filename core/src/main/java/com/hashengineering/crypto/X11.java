@@ -5,7 +5,6 @@ import org.bitcoinj.core.Sha256Hash;
 import fr.cryptohash.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.ubmb.jstribog.Stribog512;
 import ru.ubmb.jstribog.StribogProvider;
 
 import java.security.MessageDigest;
@@ -24,8 +23,9 @@ public class X11 {
     static {
 
         try {
-            System.loadLibrary("x11");
-            native_library_loaded = true;
+            // No native for SIB
+            //System.loadLibrary("x11");
+            native_library_loaded = false;
         }
         catch(UnsatisfiedLinkError x)
         {
@@ -107,7 +107,7 @@ public class X11 {
         }        
 
         Luffa512 luffa = new Luffa512();
-        hash[7] = new Sha512Hash(luffa.digest(hash[7].getBytes()));
+        hash[7] = new Sha512Hash(luffa.digest(hash[6].getBytes()));
 
         CubeHash512 cubehash = new CubeHash512();
         hash[8] = new Sha512Hash(cubehash.digest(hash[7].getBytes()));
@@ -120,7 +120,7 @@ public class X11 {
 
         ECHO512 echo = new ECHO512();
         hash[11] = new Sha512Hash(echo.digest(hash[10].getBytes()));
-
+ 
         return hash[11].trim256().getBytes();
     }
 }
