@@ -76,9 +76,9 @@ public class PeerGroup implements TransactionBroadcaster {
      * were only sending transactions to two peers and sometimes this wasn't reliable enough: transactions wouldn't
      * get through.
      */
-    public static final int DEFAULT_CONNECTIONS = 12;
+    public static final int DEFAULT_CONNECTIONS = 8;
     private static final int TOR_TIMEOUT_SECONDS = 60;
-    private volatile int vMaxPeersToDiscoverCount = 100;
+    private volatile int vMaxPeersToDiscoverCount = 50;
 
     protected final ReentrantLock lock = Threading.lock("peergroup");
 
