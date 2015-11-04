@@ -116,7 +116,7 @@ public class CoinDefinition {
     //net.cpp strDNSSeed
     static public String[] dnsSeeds = new String[] {
             "dnsseed.sibcoin.net",
-            //"dnsseed.masternode.io",
+            "dnsseed.chervonec.info",
             //"dnsseed.darkcoin.qa",
             //"dnsseed.darkcoin.io",
             //"23.23.186.131", //Evan's seed node
