@@ -117,8 +117,9 @@ public class CoinDefinition {
     static public String[] dnsSeeds = new String[] {
             "dnsseed.sibcoin.net",
             "dnsseed.chervonec.info",
-            //"dnsseed.darkcoin.qa",
-            //"dnsseed.darkcoin.io",
+            "dnsseed1.darknode.ru",
+            "dnsseed2.darknode.ru",
+            "dnsseed3.darknode.ru",
             //"23.23.186.131", //Evan's seed node
             //"162.252.83.46",  //drkpool.com
             /*"107.155.71.72",
