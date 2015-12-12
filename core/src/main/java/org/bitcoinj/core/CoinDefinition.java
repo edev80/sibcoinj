@@ -17,8 +17,8 @@ public class CoinDefinition {
     public static final String coinURIScheme = "sibcoin";
     public static final String cryptsyMarketId = "155";
     public static final String cryptsyMarketCurrency = "BTC";
-    public static final String PATTERN_PRIVATE_KEY_START_UNCOMPRESSED = "[7]";
-    public static final String PATTERN_PRIVATE_KEY_START_COMPRESSED = "[X]";
+    public static final String PATTERN_PRIVATE_KEY_START_UNCOMPRESSED = "[5]";
+    public static final String PATTERN_PRIVATE_KEY_START_COMPRESSED = "[KL]";
 
     public enum CoinPrecision {
         Coins,
@@ -26,14 +26,15 @@ public class CoinDefinition {
     }
     public static final CoinPrecision coinPrecision = CoinPrecision.Coins;
 
-    public static final String UNSPENT_API_URL = "https://chainz.cryptoid.info/dash/api.dws?q=unspent";
+    public static final String UNSPENT_API_URL = "https://chain.sibcoin.net/api/unspent/";
     public enum UnspentAPIType {
         BitEasy,
         Blockr,
         Abe,
         Cryptoid,
+        Sibcoin,        
     };
-    public static final UnspentAPIType UnspentAPI = UnspentAPIType.Cryptoid;
+    public static final UnspentAPIType UnspentAPI = UnspentAPIType.Sibcoin;
 
     public static final String BLOCKEXPLORER_BASE_URL_PROD = "http://chain.sibcoin.net/";    //blockr.io
     public static final String BLOCKEXPLORER_ADDRESS_PATH = "address/";             //blockr.io path
@@ -41,7 +42,7 @@ public class CoinDefinition {
     public static final String BLOCKEXPLORER_BLOCK_PATH = "block/";                 //blockr.io path
     public static final String BLOCKEXPLORER_BASE_URL_TEST = "http://testchain.sibcoin.net/";
 
-    public static final String DONATION_ADDRESS = "Xdeh9YTLNtci5zSL4DDayRSVTLf299n9jv";  //Hash Engineering donation DASH address
+    public static final String DONATION_ADDRESS = "Sibf9n93ZqPePPdZhLNExCNa284dexP8F5";  //RusApps donation SIB address
 
     enum CoinHash {
         SHA256,
