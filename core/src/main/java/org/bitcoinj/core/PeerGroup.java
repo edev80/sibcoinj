@@ -76,7 +76,7 @@ public class PeerGroup implements TransactionBroadcaster {
      * were only sending transactions to two peers and sometimes this wasn't reliable enough: transactions wouldn't
      * get through.
      */
-    public static final int DEFAULT_CONNECTIONS = 8;
+    public static final int DEFAULT_CONNECTIONS = 6;
     private static final int TOR_TIMEOUT_SECONDS = 60;
     private volatile int vMaxPeersToDiscoverCount = 50;
 
