@@ -1,6 +1,28 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.bitcoinj.core;
 
+import org.bitcoinj.core.listeners.BlockChainListener;
+import org.bitcoinj.store.FlatDB;
+import org.bitcoinj.store.HashStore;
+import org.bitcoinj.store.MasternodeDB;
+import org.darkcoinj.DarkSendPool;
+import org.darkcoinj.InstantSend;
 import org.slf4j.*;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -30,6 +52,23 @@ public class Context {
     private TxConfidenceTable confidenceTable;
     private NetworkParameters params;
     private int eventHorizon = 100;
+    private boolean ensureMinRequiredFee = true;
+    private Coin feePerKb = Transaction.DEFAULT_TX_FEE;
+
+    //Dash Specific
+    private boolean liteMode = true;
+    private boolean allowInstantX = true; //allow InstantX in litemode
+    public PeerGroup peerGroup;
+    public AbstractBlockChain blockChain;
+    public SporkManager sporkManager;
+    public MasternodeManager masternodeManager;
+    public MasternodePayments masternodePayments;
+    public MasternodeSync masternodeSync;
+    public ActiveMasternode activeMasternode;
+    public DarkSendPool darkSendPool;
+    public InstantSend instantSend;
+    public HashStore hashStore;
+    public MasternodeDB masternodeDB;
 
     /**
      * Creates a new context object. For now, this will be done for you by the framework. Eventually you will be
@@ -38,6 +77,7 @@ public class Context {
      * @param params The network parameters that will be associated with this context.
      */
     public Context(NetworkParameters params) {
+        log.info("Creating bitcoinj {} context.", VersionMessage.BITCOINJ_VERSION);
         this.confidenceTable = new TxConfidenceTable();
         this.params = params;
         lastConstructed = this;
@@ -46,18 +86,22 @@ public class Context {
     }
 
     /**
-     * Creates a new context object. For now, this will be done for you by the framework. Eventually you will be
-     * expected to do this yourself in the same manner as fetching a NetworkParameters object (at the start of your app).
+     * Creates a new custom context object. This is mainly meant for unit tests for now.
      *
      * @param params The network parameters that will be associated with this context.
      * @param eventHorizon Number of blocks after which the library will delete data and be unable to always process reorgs (see {@link #getEventHorizon()}.
+     * @param feePerKb The default fee per 1000 bytes of transaction data to pay when completing transactions. For details, see {@link SendRequest#feePerKb}.
+     * @param ensureMinRequiredFee Whether to ensure the minimum required fee by default when completing transactions. For details, see {@link SendRequest#ensureMinRequiredFee}.
      */
-    public Context(NetworkParameters params, int eventHorizon) {
+    public Context(NetworkParameters params, int eventHorizon, Coin feePerKb, boolean ensureMinRequiredFee) {
         this(params);
         this.eventHorizon = eventHorizon;
+        this.feePerKb = feePerKb;
+        this.ensureMinRequiredFee = ensureMinRequiredFee;
     }
 
     private static volatile Context lastConstructed;
+    private static boolean isStrictMode;
     private static final ThreadLocal<Context> slot = new ThreadLocal<Context>();
 
     /**
@@ -68,11 +112,16 @@ public class Context {
      * because propagation of contexts is meant to be done manually: this is so two libraries or subsystems that
      * independently use bitcoinj (or possibly alt coin forks of it) can operate correctly.
      *
-     * @throws java.lang.IllegalStateException if no context exists at all.
+     * @throws java.lang.IllegalStateException if no context exists at all or if we are in strict mode and there is no context.
      */
     public static Context get() {
         Context tls = slot.get();
         if (tls == null) {
+            if (isStrictMode) {
+                log.error("Thread is missing a bitcoinj context.");
+                log.error("You should use Context.propagate() or a ContextPropagatingThreadFactory.");
+                throw new IllegalStateException("missing context");
+            }
             if (lastConstructed == null)
                 throw new IllegalStateException("You must construct a Context object before using bitcoinj!");
             slot.set(lastConstructed);
@@ -80,12 +129,21 @@ public class Context {
             log.error("This error has been corrected for, but doing this makes your app less robust.");
             log.error("You should use Context.propagate() or a ContextPropagatingThreadFactory.");
             log.error("Please refer to the user guide for more information about this.");
+            log.error("Thread name is {}.", Thread.currentThread().getName());
             // TODO: Actually write the user guide section about this.
             // TODO: If the above TODO makes it past the 0.13 release, kick Mike and tell him he sucks.
             return lastConstructed;
         } else {
             return tls;
         }
+    }
+
+    /**
+     * Require that new threads use {@link #propagate(Context)} or {@link org.bitcoinj.utils.ContextPropagatingThreadFactory},
+     * rather than using a heuristic for the desired context.
+     */
+    public static void enableStrictMode() {
+        isStrictMode = true;
     }
 
     // A temporary internal shim designed to help us migrate internally in a way that doesn't wreck source compatibility.
@@ -99,7 +157,7 @@ public class Context {
             return context;
         }
         if (context.getParams() != params)
-            throw new IllegalStateException("Context does not match implicit network params: " + context.getParams() + " vs " + params);
+            throw new IllegalStateException("Context does not match implicit network context: " + context.getParams() + " vs " + params);
         return context;
     }
 
@@ -139,5 +197,155 @@ public class Context {
      */
     public int getEventHorizon() {
         return eventHorizon;
+    }
+
+    //
+    // Dash Specific
+    //
+    private boolean initializedDash = false;
+    public void initDash(boolean liteMode, boolean allowInstantX) {
+        this.liteMode = true;//liteMode; --TODO: currently only lite mode has been tested and works with 12.1
+        this.allowInstantX = allowInstantX;
+
+        //Dash Specific
+        sporkManager = new SporkManager(this);
+
+        masternodePayments = new MasternodePayments(this);
+        masternodeSync = new MasternodeSync(this);
+        activeMasternode = new ActiveMasternode(this);
+        darkSendPool = new DarkSendPool(this);
+        instantSend = new InstantSend(this);
+        masternodeManager = new MasternodeManager(this);
+        initializedDash = true;
+    }
+
+    public void closeDash() {
+        //Dash Specific
+        sporkManager = null;
+
+        masternodePayments = null;
+        masternodeSync = null;
+        activeMasternode = null;
+        darkSendPool.close();
+        darkSendPool = null;
+        instantSend = null;
+        masternodeManager = null;
+        initializedDash = false;
+    }
+
+    public void initDashSync(String directory)
+    {
+        //masternodeDB = new MasternodeDB(directory);
+
+        //MasternodeManager masternodeManagerLoaded = masternodeDB.read(this, false);
+
+        FlatDB<MasternodeManager> mndb = new FlatDB<MasternodeManager>(directory, "mncache.dat", "magicMasternodeCache");
+
+        boolean success = mndb.load(masternodeManager);
+
+        //
+        // If loading was successful, replace the default manager
+        //
+        if(/*!masternodeManagerLoaded != null!*/ success) {
+            //masternodeManager = masternodeManagerLoaded;
+            masternodeManager.setBlockChain(sporkManager.blockChain);
+        }
+
+        //other functions
+        darkSendPool.startBackgroundProcessing();
+    }
+
+    public void setPeerGroupAndBlockChain(PeerGroup peerGroup, AbstractBlockChain chain)
+    {
+        this.peerGroup = peerGroup;
+        this.blockChain = chain;
+        hashStore = new HashStore(chain.getBlockStore());
+        chain.addListener(updateHeadListener);
+        if(initializedDash) {
+            sporkManager.setBlockChain(chain);
+            masternodeManager.setBlockChain(chain);
+            masternodeSync.setBlockChain(chain);
+            instantSend.setBlockChain(chain);
+        }
+        params.setDIPActiveAtTip(chain.getBestChainHeight() >= params.getDIP0001BlockHeight());
+    }
+
+    public boolean isLiteMode() { return liteMode; }
+    public void setLiteMode(boolean liteMode)
+    {
+        boolean current = this.liteMode;
+        if(current == liteMode)
+            return;
+
+        this.liteMode = liteMode;
+        if(liteMode == false)
+        {
+            darkSendPool.startBackgroundProcessing();
+        }
+    }
+    public boolean allowInstantXinLiteMode() { return allowInstantX; }
+    public void setAllowInstantXinLiteMode(boolean allow) {
+        this.allowInstantX = allow;
+    }
+
+
+    BlockChainListener updateHeadListener = new BlockChainListener () {
+        public void notifyNewBestBlock(StoredBlock block) throws VerificationException
+        {
+            masternodeSync.updateBlockTip(block, false);
+        }
+
+        public void reorganize(StoredBlock splitPoint, List<StoredBlock> oldBlocks,
+                        List<StoredBlock> newBlocks) throws VerificationException{}
+
+        public boolean isTransactionRelevant(Transaction tx) throws ScriptException
+        {
+            return false;
+        }
+
+        public void receiveFromBlock(Transaction tx, StoredBlock block,
+                              BlockChain.NewBlockType blockType,
+                              int relativityOffset) throws VerificationException
+        {
+
+        }
+
+
+
+        public boolean notifyTransactionIsInBlock(Sha256Hash txHash, StoredBlock block,
+                                           BlockChain.NewBlockType blockType,
+                                           int relativityOffset) throws VerificationException
+        {
+            return false;
+        }
+    };
+    /**
+     * The default fee per 1000 bytes of transaction data to pay when completing transactions. For details, see {@link SendRequest#feePerKb}.
+     */
+    public Coin getFeePerKb() {
+        return feePerKb;
+    }
+
+    /**
+     * Whether to ensure the minimum required fee by default when completing transactions. For details, see {@link SendRequest#ensureMinRequiredFee}.
+     */
+    public boolean isEnsureMinRequiredFee() {
+        return ensureMinRequiredFee;
+    }
+
+    public void updatedChainHead(StoredBlock chainHead)
+    {
+        params.setDIPActiveAtTip(chainHead.getHeight() >= params.getDIP0001BlockHeight());
+        if(initializedDash) {
+            instantSend.updatedChainHead(chainHead);
+
+        /*
+        mnodeman.UpdatedBlockTip(pindex);
+        darkSendPool.UpdatedBlockTip(pindex);
+        instantsend.UpdatedBlockTip(pindex);
+        mnpayments.UpdatedBlockTip(pindex);
+        governance.UpdatedBlockTip(pindex);
+        masternodeSync.UpdatedBlockTip(pindex);*/
+        }
     }
 }

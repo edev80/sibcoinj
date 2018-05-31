@@ -32,13 +32,19 @@ public class RegTestParams extends TestNet3Params {
     public RegTestParams() {
         super();
         packetMagic = CoinDefinition.regtestPacketMagic;
-        interval = 10000;
+        // Difficulty adjustments are disabled for regtest.
+        // By setting the block interval for difficulty adjustments to Integer.MAX_VALUE we make sure difficulty never changes.
+        interval = Integer.MAX_VALUE;
         maxTarget = MAX_TARGET;
         subsidyDecreaseBlockCount = 150;
         port = CoinDefinition.RegTestPort;
         id = ID_REGTEST;
 
         CoinDefinition.initRegtestCheckpoints(checkpoints);
+
+        majorityEnforceBlockUpgrade = MainNetParams.MAINNET_MAJORITY_ENFORCE_BLOCK_UPGRADE;
+        majorityRejectBlockOutdated = MainNetParams.MAINNET_MAJORITY_REJECT_BLOCK_OUTDATED;
+        majorityWindow = MainNetParams.MAINNET_MAJORITY_WINDOW;
     }
 
     @Override

@@ -2,55 +2,60 @@ package org.darkcoinj;
 
 import org.bitcoinj.core.*;
 import org.bitcoinj.script.Script;
+import org.bitcoinj.utils.ContextPropagatingThreadFactory;
+import org.bitcoinj.utils.Threading;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by Eric on 2/8/2015.
  */
 public class DarkSendPool {
     private static final Logger log = LoggerFactory.getLogger(DarkSendPool.class);
+    ReentrantLock lock = Threading.lock("darksendpool");
+
+    // pool states for mixing
+    public static final int POOL_STATUS_UNKNOWN             =       0; // waiting for update
+    public static final int POOL_STATUS_IDLE                 =      1; // waiting for update
+    public static final int POOL_STATUS_QUEUE                 =     2; // waiting in a queue
+    public static final int POOL_STATUS_ACCEPTING_ENTRIES      =    3; // accepting entries
+    public static final int POOL_STATUS_FINALIZE_TRANSACTION    =   4; // master node will broadcast what it accepted
+    public static final int  POOL_STATUS_SIGNING                 =   5; // check inputs/outputs, sign final tx
+    public static final int  POOL_STATUS_TRANSMISSION            =   6; // transmit transaction
+    public static final int  POOL_STATUS_ERROR                   =   7; // error
+    public static final int  POOL_STATUS_SUCCESS                 =   8; // success
+
     static final int MIN_PEER_PROTO_VERSION = 70054;
 
-    // clients entries
-    ArrayList<DarkSendEntry> myEntries;
     // masternode entries
     ArrayList<DarkSendEntry> entries;
     // the finalized transaction ready for signing
     Transaction finalTransaction;
 
     long lastTimeChanged;
-    long lastAutoDenomination;
 
     int state;
     int entriesCount;
     int lastEntryAccepted;
     int countEntriesAccepted;
 
-    // where collateral should be made out to
-    Script collateralPubKey;
+
 
     ArrayList<TransactionInput> lockedCoins;
 
-    Sha256Hash masterNodeBlockHash;
-
     String lastMessage;
-    boolean completedTransaction;
     boolean unitTest;
-    InetSocketAddress submittedToMasternode;
 
     int sessionID;
-    int sessionDenom; //Users must submit an denom matching this
     int sessionUsers; //N Users have said they'll join
     boolean sessionFoundMasternode; //If we've found a compatible masternode
-    long sessionTotalValue; //used for autoDenom
-    ArrayList<Transaction> vecSessionCollateral;
+     ArrayList<Transaction> vecSessionCollateral;
 
     int cachedLastSuccess;
-    int cachedNumBlocks; //used for the overview screen
     int minBlockSpacing; //required blocks between mixes
     Transaction txCollateral;
 
@@ -59,31 +64,63 @@ public class DarkSendPool {
     //debugging data
     String strAutoDenomResult;
 
-    //incremented whenever a DSQ comes through
-    long nDsqCount;
+    enum ErrorMessage {
+        ERR_ALREADY_HAVE,
+        ERR_DENOM,
+        ERR_ENTRIES_FULL,
+        ERR_EXISTING_TX,
+        ERR_FEES,
+        ERR_INVALID_COLLATERAL,
+        ERR_INVALID_INPUT,
+        ERR_INVALID_SCRIPT,
+        ERR_INVALID_TX,
+        ERR_MAXIMUM,
+        ERR_MN_LIST,
+        ERR_MODE,
+        ERR_NON_STANDARD_PUBKEY,
+        ERR_NOT_A_MN,
+        ERR_QUEUE_FULL,
+        ERR_RECENT,
+        ERR_SESSION,
+        ERR_MISSING_TX,
+        ERR_VERSION,
+        MSG_NOERR,
+        MSG_SUCCESS,
+        MSG_ENTRIES_ADDED
+    };
 
-    DarkCoinSystem system;
+    // where collateral should be made out to
+    public Script collateralPubKey;
 
-    DarkSendPool(DarkCoinSystem system)
+    public Masternode submittedToMasternode;
+    int sessionDenom; //Users must submit an denom matching this
+    int cachedNumBlocks; //used for the overview screen
+
+    Context context;
+
+    public DarkSendPool(Context context)
     {
-        this.system = system;
+        this.context = context;
         /* DarkSend uses collateral addresses to trust parties entering the pool
             to behave themselves. If they don't it takes their money. */
 
         cachedLastSuccess = 0;
-        cachedNumBlocks = 0;
+        cachedNumBlocks = Integer.MAX_VALUE; //std::numeric_limits<int>::max();
         unitTest = false;
-        txCollateral = new Transaction(system.params);
-        minBlockSpacing = 1;
-        nDsqCount = 0;
+        txCollateral = new Transaction(context.getParams());
+        minBlockSpacing = 0;
         lastNewBlock = 0;
 
-      //  SetNull();
+        vecSessionCollateral = new ArrayList<Transaction>();
+        entries = new ArrayList<DarkSendEntry>();
+        finalTransaction = new Transaction(context.getParams());
+
+        setNull();
     }
     /*
     void InitCollateralAddress(){
         String strAddress = "";
-        if(system.params.getId() == NetworkParameters.ID_MAINNET) {
+        if(system.context.getId() == NetworkParameters.ID_MAINNET) {
             strAddress = "Xq19GqFvajRrEdDHYRKGYjTsQfpV5jyipF";
         } else {
             strAddress = "y1EZuxhhNMAUofTBEeLqGE1bJrpC2TWRNp";
@@ -97,129 +134,132 @@ public class DarkSendPool {
 
     bool SetCollateralAddress(std::string strAddress);
     void Reset();
-    void SetNull(bool clearEverything=false);
+    */
+    static SecureRandom secureRandom = new SecureRandom();
 
-    void UnlockCoins();
-
-    boolean IsNull()
+    void setNull()
     {
-        return (state == DarkSend.POOL_STATUS_ACCEPTING_ENTRIES && entries.isEmpty() && myEntries.isEmpty());
+        // MN side
+        sessionUsers = 0;
+        vecSessionCollateral.clear();
+
+        // Client side
+        entriesCount = 0;
+        lastEntryAccepted = 0;
+        countEntriesAccepted = 0;
+        sessionFoundMasternode = false;
+
+        // Both sides
+        state = POOL_STATUS_IDLE;
+        sessionID = 0;
+        sessionDenom = 0;
+        entries.clear();
+        finalTransaction.clearInputs();
+        finalTransaction.clearOutputs();
+        lastTimeChanged = Utils.currentTimeMillis();
+
+        // -- seed random number generator (used for ordering output lists)
+        secureRandom.setSeed(secureRandom.generateSeed(12));
+        /*unsigned int seed = 0;
+        RAND_bytes((unsigned char*)&seed, sizeof(seed));
+        std::srand(seed);*/
     }
+    static boolean oneThread = false;
+    class ThreadCheckDarkSendPool implements Runnable {
+        public volatile boolean exit = false;
 
-    int GetState()
-    {
-        return state;
-    }
+        public void stop() { exit = true; }
+        @Override
+        public void run() {
+            if(context.isLiteMode() && !context.allowInstantXinLiteMode()) return; //disable all Darksend/Masternode related functionality
 
-    int GetEntriesCount()
-    {
-        if(system.fMasterNode){
-            return entries.size();
-        } else {
-            return entriesCount;
-        }
-    }
+            if(oneThread)
+                return;
+            oneThread = true;
+            // Make this thread recognisable as the wallet flushing thread
 
-    int GetLastEntryAccepted()
-    {
-        return lastEntryAccepted;
-    }
+            //RenameThread("dash-darksend");
+            log.info("--------------------------------------\nstarting dash-darksend thread");
+            int tick = 0;
+            try {
 
-    int GetCountEntriesAccepted()
-    {
-        return countEntriesAccepted;
-    }
+                while (true && !exit) {
+                    Thread.sleep(1000);
+                    //LogPrintf("ThreadCheckDarkSendPool::check timeout\n");
 
-    int GetMyTransactionCount()
-    {
-        return myEntries.size();
-    }
+                    // try to sync from all available nodes, one step at a time
+                    context.masternodeSync.processTick();
 
-    void UpdateState(int newState)
-    {
-        if (system.fMasterNode && (newState == DarkSend.POOL_STATUS_ERROR || newState == DarkSend.POOL_STATUS_SUCCESS)){
-            log.info("CDarkSendPool::UpdateState() - Can't set state to ERROR or SUCCESS as a masternode. \n");
-            return;
-        }
+                    /*if(context.isLiteMode() && context.allowInstantXinLiteMode() && context.masternodeSync.getSyncStatusInt() == MasternodeSync.MASTERNODE_SYNC_FINISHED) {
+                        log.info("closing thread: " + Thread.currentThread().getName());
+                        oneThread = false;
+                        return; // if in LiteMode and allowing instantX and the Sporks are synced, then close this thread.
+                    }*/
 
-        log.info("CDarkSendPool::UpdateState() == %d | %d \n", state, newState);
-        if(state != newState){
-            lastTimeChanged = Utils.currentTimeMillis();
-            if(system.fMasterNode) {
-                RelayDarkSendStatus(system.darkSend.darkSendPool.sessionID, system.darkSend.darkSendPool.GetState(),system.darkSend.darkSendPool.GetEntriesCount(), system.darkSend.MASTERNODE_RESET);
+                    if (context.masternodeSync.isBlockchainSynced()) {
+
+                        tick++;
+
+                        // check if we should activate or ping every few minutes,
+                        // start right after sync is considered to be done
+                        if (tick % Masternode.MASTERNODE_MIN_MNP_SECONDS == 15)
+                            context.activeMasternode.manageStatus();
+
+                        if (tick % 60 == 0) {
+                            context.masternodeManager.processMasternodeConnections();
+                            context.masternodeManager.checkAndRemove();
+                            context.masternodePayments.checkAndRemove();
+                            context.instantSend.checkAndRemove();
+                        }
+                        //hashengineering added this
+                        if(tick % 30 == 0) {
+                            log.info(context.masternodeManager.toString());
+                        }
+
+                        //if(c % MASTERNODES_DUMP_SECONDS == 0) DumpMasternodes();
+
+                        //TODO:  Add if necessary for other DarkSend functions
+                        /*
+                        darkSendPool.CheckTimeout();
+                        darkSendPool.CheckForCompleteQueue();
+
+                        if(nDoAutoNextRun == nTick) {
+                            darkSendPool.DoAutomaticDenominating();
+                            nDoAutoNextRun = nTick + PRIVATESEND_AUTO_TIMEOUT_MIN + GetRandInt(PRIVATESEND_AUTO_TIMEOUT_MAX - PRIVATESEND_AUTO_TIMEOUT_MIN);
+                        }*/
+                    }
+                }
+            }
+            catch(InterruptedException x)
+            {
+                x.printStackTrace();
             }
         }
-        state = newState;
-    }
+    };
 
-    int GetMaxPoolTransactions()
+    Thread backgroundThread;
+    ThreadCheckDarkSendPool threadCheckDarkSendPool = null;
+    //dash
+    public boolean startBackgroundProcessing()
     {
-        //if we're on testnet, just use two transactions per merge
-        if(system.params.getId() == NetworkParameters.ID_TESTNET || system.params.getId() == NetworkParameters.ID_REGTEST) return 2;
-
-        //use the production amount
-        return system.darkSend.POOL_MAX_TRANSACTIONS;
+        if(backgroundThread == null)
+        {
+            threadCheckDarkSendPool = new ThreadCheckDarkSendPool();
+            backgroundThread = new ContextPropagatingThreadFactory("dash-privatesend").newThread(threadCheckDarkSendPool);
+            backgroundThread.start();
+            return true;
+        }
+        else if(backgroundThread.getState() == Thread.State.TERMINATED) {
+            //if the thread was stopped, start it again
+            backgroundThread = new ContextPropagatingThreadFactory("dash-privatesend").newThread(threadCheckDarkSendPool);
+            backgroundThread.start();
+        }
+        return false;
     }
+    public boolean isBackgroundRunning() { return backgroundThread == null ? false : backgroundThread.getState() != Thread.State.TERMINATED; }
 
-    //Do we have enough users to take entries?
-    boolean IsSessionReady(){
-        return sessionUsers >= GetMaxPoolTransactions();
+    public void close()
+    {
+        threadCheckDarkSendPool.stop();
     }
-
-    // Are these outputs compatible with other client in the pool?
-    boolean IsCompatibleWithEntries(std::vector<CTxOut> vout);
-    // Is this amount compatible with other client in the pool?
-    boolean IsCompatibleWithSession(int64_t nAmount, CTransaction txCollateral, std::string& strReason);
-
-    // Passively run Darksend in the background according to the configuration in settings (only for QT)
-    boolean DoAutomaticDenominating(bool fDryRun=false, bool ready=false);
-    boolean PrepareDarksendDenominate();
-
-
-    // check for process in Darksend
-    void Check();
-    // charge fees to bad actors
-    void ChargeFees();
-    // rarely charge fees to pay miners
-    void ChargeRandomFees();
-    void CheckTimeout();
-    // check to make sure a signature matches an input in the pool
-    bool SignatureValid(const CScript& newSig, const CTxIn& newVin);
-    // if the collateral is valid given by a client
-    bool IsCollateralValid(const CTransaction& txCollateral);
-    // add a clients entry to the pool
-    bool AddEntry(const std::vector<CTxIn>& newInput, const int64_t& nAmount, const CTransaction& txCollateral, const std::vector<CTxOut>& newOutput, std::string& error);
-    // add signature to a vin
-    bool AddScriptSig(const CTxIn& newVin);
-    // are all inputs signed?
-    bool SignaturesComplete();
-    // as a client, send a transaction to a masternode to start the denomination process
-    void SendDarksendDenominate(std::vector<CTxIn>& vin, std::vector<CTxOut>& vout, int64_t amount);
-    // get masternode updates about the progress of darksend
-    bool StatusUpdate(int newState, int newEntriesCount, int newAccepted, std::string& error, int newSessionID=0);
-
-    // as a client, check and sign the final transaction
-    bool SignFinalTransaction(CTransaction& finalTransactionNew, CNode* node);
-
-    // get block hash by height
-    bool GetBlockHash(uint256& hash, int nBlockHeight);
-    // get the last valid block hash for a given modulus
-    bool GetLastValidBlockHash(uint256& hash, int mod=1, int nBlockHeight=0);
-    // process a new block
-    void NewBlock();
-    void CompletedTransaction(bool error, std::string lastMessageNew);
-    void ClearLastMessage();
-    // used for liquidity providers
-    bool SendRandomPaymentToSelf();
-    // split up large inputs or make fee sized inputs
-    bool MakeCollateralAmounts();
-    bool CreateDenominated(int64_t nTotalValue);
-    // get the denominations for a list of outputs (returns a bitshifted integer)
-    int GetDenominations(const std::vector<CTxOut>& vout);
-    void GetDenominationsToString(int nDenom, std::string& strDenom);
-    // get the denominations for a specific amount of darkcoin.
-    int GetDenominationsByAmount(int64_t nAmount, int nDenomTarget=0);
-
-    int GetDenominationsByAmounts(std::vector<int64_t>& vecAmount);
-    */
 }

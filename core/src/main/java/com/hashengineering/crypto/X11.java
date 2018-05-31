@@ -51,7 +51,7 @@ public class X11 {
         //long start = System.currentTimeMillis();
         try {
             // we've added GOST into x11(), so x11_native can't be used anymore
-            return x11(input); 
+            return x11(input);
             //return native_library_loaded ? x11_native(input) : x11(input);
             /*long start = System.currentTimeMillis();
             byte [] result = x11_native(input);
@@ -95,7 +95,7 @@ public class X11 {
 
         Keccak512 keccak = new Keccak512();
         hash[5] = new Sha512Hash(keccak.digest(hash[4].getBytes()));
-        
+
         try {
             if (Security.getProvider("JStribog") == null) {
                 Security.addProvider(new StribogProvider());
@@ -104,7 +104,7 @@ public class X11 {
             hash[6] = new Sha512Hash(md.digest(hash[5].getBytes()));
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
-        }        
+        }
 
         Luffa512 luffa = new Luffa512();
         hash[7] = new Sha512Hash(luffa.digest(hash[6].getBytes()));
@@ -120,7 +120,7 @@ public class X11 {
 
         ECHO512 echo = new ECHO512();
         hash[11] = new Sha512Hash(echo.digest(hash[10].getBytes()));
- 
+
         return hash[11].trim256().getBytes();
     }
 }

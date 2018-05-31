@@ -32,7 +32,7 @@ public class CoinDefinition {
         Blockr,
         Abe,
         Cryptoid,
-        Sibcoin,        
+        Sibcoin,
     };
     public static final UnspentAPIType UnspentAPI = UnspentAPIType.Sibcoin;
 
@@ -55,7 +55,7 @@ public class CoinDefinition {
 
     public static final int TARGET_TIMESPAN = (int)(24 * 60 * 60);  // 24 hours per difficulty cycle, on average.
     public static final int TARGET_SPACING = (int)(2.5 * 60);  // 2.5 minutes seconds per block.
-    public static final int INTERVAL = TARGET_TIMESPAN / TARGET_SPACING;  //36 blocks
+    public static final int INTERVAL = TARGET_TIMESPAN / TARGET_SPACING;  //36 blocks vs upstream: //57 blocks
 
     public static final int getInterval(int height, boolean testNet) {
             return INTERVAL;      //108
@@ -76,6 +76,13 @@ public class CoinDefinition {
     public static final long DUST_LIMIT = 1000; //main.h CTransaction::GetMinFee        0.01 coins
     public static final long INSTANTX_FEE = 1000000;
 
+    /* ^^^^^ vs upstream release-0.14
+    public static final long DEFAULT_MIN_TX_FEE = 10000;   // MIN_TX_FEE
+    public static final long DUST_LIMIT = 5460; //Transaction.h CTransaction::GetDustThreshold for 10000 MIN_TX_FEE
+    public static final long INSTANTX_FEE = 100000; //0.001 DASH (updated for 12.1)
+    public static final boolean feeCanBeRaised = false;
+     */
+
     //
     // Dash 0.12
     //
@@ -83,15 +90,19 @@ public class CoinDefinition {
     public static final int MIN_PROTOCOL_VERSION = 70066;        //version.h MIN_PROTO_VERSION
     public static final int BIP0031_VERSION = 60000;
 
-    public static final int BLOCK_CURRENTVERSION = 2;   //CBlock::CURRENT_VERSION
-    public static final int MAX_BLOCK_SIZE = 1 * 1000 * 1000;
-
+    /* ^^^^^ vs upstream release-0.14
+    //
+    // Dash 0.12.1.x
+    //
+    public static final int PROTOCOL_VERSION = 70208;          //version.h PROTOCOL_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70206;        //version.h MIN_PROTO_VERSION
+    */
 
     public static final boolean supportsBloomFiltering = true; //Requires PROTOCOL_VERSION 70000 in the client
 
     public static final int Port    = 1945;       //protocol.h GetDefaultPort(testnet=false)
     public static final int TestPort = 11945;     //protocol.h GetDefaultPort(testnet=true)
-    public static final int RegTestPort = 19994;    
+    public static final int RegTestPort = 19994;
 
     //
     //  Production
@@ -153,10 +164,10 @@ public class CoinDefinition {
     // TestNet - dimecoin - not tested
     //
     public static final boolean supportsTestNet = true;
-    public static final boolean supportsRegTest = true;    
+    public static final boolean supportsRegTest = true;
     public static final int testnetAddressHeader = 125;             //base58.h CBitcoinAddress::PUBKEY_ADDRESS_TEST
     public static final int testnetp2shHeader = 100;             //base58.h CBitcoinAddress::SCRIPT_ADDRESS_TEST
-    public static final int testnetDumpedPrivateKeyHeader = 125;    
+    public static final int testnetDumpedPrivateKeyHeader = 125;
     public static final long testnetPacketMagic = 0xcee2caff;      //
     public static final String testnetGenesisHash = "00000617791d0e19f524387f67e558b2a928b670b9a3b387ae003ad7f9093017";
     static public long testnetGenesisBlockDifficultyTarget = (0x1e0ffff0L);         //main.cpp: LoadBlockIndex
@@ -171,7 +182,7 @@ public class CoinDefinition {
     public static final String regtestGenesisHash = "000007bfa2866f77d1f22f9da7fda73ea3c5185dc156f4f6f8b3a3caed27247e";
     static public long regtestGenesisBlockDifficultyTarget = (0x207fffff);         //main.cpp: LoadBlockIndex
     static public long regtestGenesisBlockTime = 1431129600L;                       //main.cpp: LoadBlockIndex
-    static public long regtestGenesisBlockNonce = (2106393);     
+    static public long regtestGenesisBlockNonce = (2106393);
 
 
 
@@ -221,7 +232,7 @@ public class CoinDefinition {
         checkpoints.put(70000, Sha256Hash.wrap("00000000013eb4498b627e9b8cc1baf74f77f518be4f32ed27b6455e18f5295a"));
         checkpoints.put(80000, Sha256Hash.wrap("0000000027d43f7c0323d29365f18c39666b8205a160d8a09f599f92ff259482"));
     }
-  
+
     //checkpoints.cpp Checkpoints::mapCheckpointsTestnet
     public static void initTestnetCheckpoints(Map<Integer, Sha256Hash> checkpoints)
     {
@@ -234,8 +245,8 @@ public class CoinDefinition {
     public static void initRegtestCheckpoints(Map<Integer, Sha256Hash> checkpoints)
     {
         checkpoints.put(    0, Sha256Hash.wrap("000007bfa2866f77d1f22f9da7fda73ea3c5185dc156f4f6f8b3a3caed27247e"));
-    }  
-    
+    }
+
     //Unit Test Information
     public static final String UNITTEST_ADDRESS = "XgxQxd6B8iYgEEryemnJrpvoWZ3149MCkK";
     public static final String UNITTEST_ADDRESS_PRIVATE_KEY = "XDtvHyDHk4S3WJvwjxSANCpZiLLkKzoDnjrcRhca2iLQRtGEz1JZ";

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2013 Google Inc.
  * Copyright 2014 Andreas Schildbach
  *
@@ -19,16 +19,24 @@ package org.bitcoinj.examples;
 
 import org.bitcoinj.core.*;
 import org.bitcoinj.crypto.KeyCrypterException;
+import org.bitcoinj.kits.LevelDBWalletAppKit;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
+import org.bitcoinj.store.FlatDB;
+import org.bitcoinj.store.MasternodeDB;
 import org.bitcoinj.utils.BriefLogFormatter;
+import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
+
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.bitcoinj.utils.Pair;
 
 import java.io.File;
+import java.util.ArrayList;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -62,10 +70,12 @@ public class ForwardingService {
             filePrefix = "forwarding-service";
         }
         // Parse the address given as the first parameter.
-        forwardingAddress = new Address(params, args[0]);
+        forwardingAddress = Address.fromBase58(params, args[0]);
 
         // Start up a basic app using a class that automates some boilerplate.
         kit = new WalletAppKit(params, new File("."), filePrefix);
+
+        //kit = new LevelDBWalletAppKit(params, new File("."), filePrefix);
 
         if (params == RegTestParams.get()) {
             // Regression test mode is designed for testing and development only, so there's no public network for it.
@@ -78,7 +88,7 @@ public class ForwardingService {
         kit.awaitRunning();
 
         // We want to know when we receive money.
-        kit.wallet().addEventListener(new AbstractWalletEventListener() {
+        kit.wallet().addCoinsReceivedEventListener(new WalletCoinsReceivedEventListener() {
             @Override
             public void onCoinsReceived(Wallet w, Transaction tx, Coin prevBalance, Coin newBalance) {
                 // Runs in the dedicated "user thread" (see bitcoinj docs for more info on this).
@@ -112,6 +122,19 @@ public class ForwardingService {
         System.out.println("Send coins to: " + sendToAddress);
         System.out.println("Waiting for coins to arrive. Press Ctrl-C to quit.");
 
+        Context.get().masternodeSync.addEventListener(new MasternodeSyncListener() {
+            @Override
+            public void onSyncStatusChanged(int newStatus, double syncStatus) {
+                if(newStatus == MasternodeSync.MASTERNODE_SYNC_FINISHED) {
+                    FlatDB<MasternodeManager> mndb = new FlatDB<MasternodeManager>(kit.directory().getAbsolutePath(), "mncache.dat", "magicMasternodeCache");
+                    mndb.dump(Context.get().masternodeManager);
+                    //ArrayList<Pair<Integer, Masternode>> results = Context.get().masternodeManager.getMasternodeRanks(27143, 0);
+                    //System.out.println(results.toString());
+                }
+
+            }
+        });
+
         try {
             Thread.sleep(Long.MAX_VALUE);
         } catch (InterruptedException ignored) {}
@@ -136,6 +159,10 @@ public class ForwardingService {
                     System.out.println("Sent coins onwards! Transaction hash is " + sendResult.tx.getHashAsString());
                 }
             }, MoreExecutors.sameThreadExecutor());
+
+            //MasternodeDB.dumpMasternodes();
+            FlatDB<MasternodeManager> mndb = new FlatDB<MasternodeManager>(kit.directory().getAbsolutePath(),"mncache.dat", "magicMasternodeCache");
+            mndb.dump(Context.get().masternodeManager);
         } catch (KeyCrypterException | InsufficientMoneyException e) {
             // We don't use encrypted wallets in this example - can never happen.
             throw new RuntimeException(e);

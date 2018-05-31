@@ -5,14 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.bitcoinj</groupId>
-        <artifactId>bitcoinj-parent</artifactId>
-        <version>0.13.2</version>
+        <artifactId>sibcoinj-parent</artifactId>
+        <version>0.14.4.4</version>
     </parent>
 
-    <groupId>org.darkcoinj</groupId>
+    <groupId>org.dashj</groupId>
     <artifactId>wallettemplate</artifactId>
 
-    <name>bitcoinj Wallet-Template</name>
+    <name>dashj Wallet-Template</name>
 
     <build>
         <plugins>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>16.0.1</version>
+            <version>18.0</version>
         </dependency>
         <!-- Native Mac skin (there's also AeroFX, MetroFX, etc)
         <dependency>
