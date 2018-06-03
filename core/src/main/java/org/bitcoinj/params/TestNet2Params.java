@@ -63,7 +63,9 @@ public class TestNet2Params extends AbstractBitcoinNetParams {
         majorityRejectBlockOutdated = TESTNET_MAJORITY_REJECT_BLOCK_OUTDATED;
         majorityWindow = TESTNET_MAJORITY_WINDOW;
 
+        /* DASH specific
         DIP0001BlockHeight = 15000;
+        */
 
     }
 

@@ -85,19 +85,16 @@ public abstract class NetworkParameters {
     protected int bip32HeaderPriv;
 
     /** Used to check majorities for block version upgrade */
-    /*
     protected int majorityEnforceBlockUpgrade;
     protected int majorityRejectBlockOutdated;
     protected int majorityWindow;
-    */
 
-    /** Used to check for DIP0001 upgrade */
-    /*
+    /** Used to check for DIP0001 upgrade.
+     * NOTE: ALL GET/SET METHODS ARE STUBBED. See {@link #isDIP0001ActiveAtTip()} */
     protected int DIP0001Window;
     protected int DIP0001Upgrade;
-    protected int DIP0001BlockHeight;
+    protected int DIP0001BlockHeight = Integer.MAX_VALUE;
     protected boolean DIP0001ActiveAtTip = false;
-    */
 
     /**
      * See getId(). This may be null for old deserialized wallets. In that case we derive it heuristically
@@ -110,24 +107,18 @@ public abstract class NetworkParameters {
      */
     protected int spendableCoinbaseDepth;
     protected int subsidyDecreaseBlockCount;
-    /*
     protected int budgetPaymentsStartBlock;
-    */
 
     protected int[] acceptableAddressCodes;
     protected String[] dnsSeeds;
     protected int[] addrSeeds;
     protected HttpDiscovery.Details[] httpSeeds = {};
     protected Map<Integer, Sha256Hash> checkpoints = new HashMap<Integer, Sha256Hash>();
-    /*
+
     protected transient MessageSerializer defaultSerializer = null;
-
-
-
-
     //Dash Extra Parameters
     protected String strSporkKey;
-    String strMasternodePaymentsPubKey;
+    String strMasternodePaymentsPubKey; // never init'ed or used anywhere
     String strDarksendPoolDummyAddress;
     long nStartMasternodePayments;
 
@@ -136,7 +127,6 @@ public abstract class NetworkParameters {
     public String getSporkKey() {
         return strSporkKey;
     }
-    */
 
     protected NetworkParameters() {
         alertSigningKey = SATOSHI_KEY;
@@ -311,11 +301,9 @@ public abstract class NetworkParameters {
         return subsidyDecreaseBlockCount;
     }
 
-    /*
     public int getBudgetPaymentsStartBlock() {
         return budgetPaymentsStartBlock;
     }
-    */
 
     /** Returns DNS names that when resolved, give IP addresses of active peers. */
     public String[] getDnsSeeds() {
@@ -581,8 +569,8 @@ public abstract class NetworkParameters {
         }
     }
 
-    //DASH Specific
-    public boolean isDIP0001ActiveAtTip() { return DIP0001ActiveAtTip; }
-    public void setDIPActiveAtTip(boolean active) { DIP0001ActiveAtTip = active; }
+    //DASH Specific. Stubbed because DIP0001 is not applicable.
+    public boolean isDIP0001ActiveAtTip() { return false; }
+    public void setDIPActiveAtTip(boolean active) { /*DIP0001ActiveAtTip = active; */}
     public int getDIP0001BlockHeight() { return DIP0001BlockHeight; }
 }

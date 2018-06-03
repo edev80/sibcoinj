@@ -55,7 +55,9 @@ public class UnitTestParams extends AbstractBitcoinNetParams {
         majorityRejectBlockOutdated = 4;
         majorityWindow = 7;
 
+        /* DASH specific
         DIP0001BlockHeight = 100000;  // not active
+        */
     }
 
     private static UnitTestParams instance;

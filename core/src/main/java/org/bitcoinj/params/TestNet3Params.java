@@ -34,9 +34,10 @@ import static com.google.common.base.Preconditions.checkState;
  * and testing of applications and new Dash versions.
  */
 public class TestNet3Params extends AbstractBitcoinNetParams {
-
+    /*
     public static final int TESTNET_MAJORITY_DIP0001_WINDOW = 4032;
     public static final int TESTNET_MAJORITY_DIP0001_THRESHOLD = 3226;
+    */
 
     public TestNet3Params() {
         super();
@@ -54,9 +55,12 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
         p2shHeader = CoinDefinition.testnetp2shHeader;
         acceptableAddressCodes = new int[] { addressHeader, p2shHeader };
         dumpedPrivateKeyHeader = CoinDefinition.testnetDumpedPrivateKeyHeader;
-
+        genesisBlock.setTime(CoinDefinition.testnetGenesisBlockTime);
+        genesisBlock.setDifficultyTarget(CoinDefinition.testnetGenesisBlockDifficultyTarget);
+        genesisBlock.setNonce(CoinDefinition.testnetGenesisBlockNonce);
         spendableCoinbaseDepth = CoinDefinition.spendableCoinbaseDepth;
         subsidyDecreaseBlockCount = CoinDefinition.subsidyDecreaseBlockCount;
+        String genesisHash = genesisBlock.getHashAsString();
 
         CoinDefinition.initTestnetCheckpoints(checkpoints);
 
@@ -70,24 +74,19 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
         bip32HeaderPub = 0x043587CF;    // chainparams.cpp base58Prefixes[EXT_PUBLIC_KEY]
         bip32HeaderPriv = 0x04358394;   // chainparams.cpp base58Prefixes[EXT_SECRET_KEY]
 
-        /*
         checkpoints.put(    261, Sha256Hash.wrap("00000c26026d0815a7e2ce4fa270775f61403c040647ff2c3091f99e894a4618"));
         checkpoints.put(   1999, Sha256Hash.wrap("00000052e538d27fa53693efe6fb6892a0c1d26c0235f599171c48a3cce553b1"));
         checkpoints.put(   2999, Sha256Hash.wrap("0000024bc3f4f4cb30d29827c13d921ad77d2c6072e586c7f60d83c2722cdcc5"));
 
         addrSeeds = null;
-        bip32HeaderPub = 0x043587cf;
-        bip32HeaderPriv = 0x04358394 ;
 
-        strSporkKey = "046f78dcf911fbd61910136f7f0f8d90578f68d0b3ac973b5040fb7afb501b5939f39b108b0569dca71488f5bbf498d92e4d1194f6f941307ffd95f75e76869f0e";
-
-     //   bip32HeaderPub = 0x043587CF;
-     //   bip32HeaderPriv = 0x04358394;
+        strSporkKey = "04353c6fb48c7a06dd4b16446421508fd5ea8e422d875d9f78a608aad5513d55094008687069a877f298bc3f488ae86366685286e1f8ba0a9ab9bf3f5dcde1c79e"; // chainparams.cpp strSporkPubKey
 
         majorityEnforceBlockUpgrade = TestNet2Params.TESTNET_MAJORITY_ENFORCE_BLOCK_UPGRADE;
         majorityRejectBlockOutdated = TestNet2Params.TESTNET_MAJORITY_REJECT_BLOCK_OUTDATED;
         majorityWindow = TestNet2Params.TESTNET_MAJORITY_WINDOW;
 
+        /* DASH specific
         DIP0001Window = TESTNET_MAJORITY_DIP0001_WINDOW;
         DIP0001Upgrade = TESTNET_MAJORITY_DIP0001_THRESHOLD;
         DIP0001BlockHeight = 15000;
@@ -100,18 +99,6 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
             instance = new TestNet3Params();
         }
         return instance;
-    }
-
-    @Override
-    protected void createGenesis(NetworkParameters n) {
-        super.createGenesis(n);
-        genesisBlock.setNonce(CoinDefinition.testnetGenesisBlockNonce);
-        genesisBlock.setDifficultyTarget(CoinDefinition.testnetGenesisBlockDifficultyTarget);
-        genesisBlock.setTime(CoinDefinition.testnetGenesisBlockTime);
-
-        String genesisHash = genesisBlock.getHashAsString();
-        if(CoinDefinition.supportsTestNet)
-            checkState(genesisHash.equals(CoinDefinition.testnetGenesisHash));
     }
 
     @Override

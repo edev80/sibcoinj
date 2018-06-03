@@ -33,8 +33,10 @@ public class MainNetParams extends AbstractBitcoinNetParams {
     public static final int MAINNET_MAJORITY_REJECT_BLOCK_OUTDATED = 950;
     public static final int MAINNET_MAJORITY_ENFORCE_BLOCK_UPGRADE = 750;
 
+    /* DASH specific
     public static final int MAINNET_MAJORITY_DIP0001_WINDOW = 4032;
     public static final int MAINNET_MAJORITY_DIP0001_THRESHOLD = 3226;
+    */
 
     public MainNetParams() {
         super();
@@ -82,10 +84,10 @@ public class MainNetParams extends AbstractBitcoinNetParams {
                 0x8a02ff9e, 0xdb676505, 0x6693652e, 0x4431b75f, 0xbc419529,
         };
 
-        /* added in upstream/release-0.14
-        strSporkKey = "04549ac134f694c0243f503e8c8a9a986f5de6610049c40b07816809b0d1d06a21b07be27b9bb555931773f62ba6cf35a25fd52f694d4e1106ccd237a7bb899fdd";
+        strSporkKey = "04839aa94504430df7cabb57b008061f9c64eb0719fadaba1ac2fa95bad5f2eb6e3b5f990d201a06d8b6186713d4becaacef933ae644299782ffb6aee82d2ed192"; // chainparams.cpp strSporkPubKey
         budgetPaymentsStartBlock = 328008;
 
+        /* DASH specific
         DIP0001Window = MAINNET_MAJORITY_DIP0001_WINDOW;
         DIP0001Upgrade = MAINNET_MAJORITY_DIP0001_THRESHOLD;
         DIP0001BlockHeight = 782208;

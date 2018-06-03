@@ -76,27 +76,15 @@ public class CoinDefinition {
     public static final long DUST_LIMIT = 1000; //main.h CTransaction::GetMinFee        0.01 coins
     public static final long INSTANTX_FEE = 1000000;
 
-    /* ^^^^^ vs upstream release-0.14
-    public static final long DEFAULT_MIN_TX_FEE = 10000;   // MIN_TX_FEE
-    public static final long DUST_LIMIT = 5460; //Transaction.h CTransaction::GetDustThreshold for 10000 MIN_TX_FEE
-    public static final long INSTANTX_FEE = 100000; //0.001 DASH (updated for 12.1)
+    /* upstream release-0.14
     public static final boolean feeCanBeRaised = false;
      */
 
     //
-    // Dash 0.12
-    //
-    public static final int PROTOCOL_VERSION = 70103;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70066;        //version.h MIN_PROTO_VERSION
-    public static final int BIP0031_VERSION = 60000;
-
-    /* ^^^^^ vs upstream release-0.14
-    //
     // Dash 0.12.1.x
     //
-    public static final int PROTOCOL_VERSION = 70208;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70206;        //version.h MIN_PROTO_VERSION
-    */
+    public static final int PROTOCOL_VERSION = 70206;     //version.h PROTOCOL_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70103; //version.h MIN_PEER_PROTO_VERSION
 
     public static final boolean supportsBloomFiltering = true; //Requires PROTOCOL_VERSION 70000 in the client
 
@@ -231,6 +219,9 @@ public class CoinDefinition {
         checkpoints.put(38700, Sha256Hash.wrap("0000000922c8ae23533c8aa6a4a22f51fa4cdfba85e8c08f2a019dcf755ec48f"));
         checkpoints.put(70000, Sha256Hash.wrap("00000000013eb4498b627e9b8cc1baf74f77f518be4f32ed27b6455e18f5295a"));
         checkpoints.put(80000, Sha256Hash.wrap("0000000027d43f7c0323d29365f18c39666b8205a160d8a09f599f92ff259482"));
+//        checkpoints.put(116000, Sha256Hash.wrap("0000000002850289e192660166b708ee7ebb44986c04f43c26a21607d77966cd"));
+//        checkpoints.put(180000, Sha256Hash.wrap("00000000091a61016e9e3effdd3a98e6cfac3cb6e3ddda80f2545900abfb0540"));
+//        checkpoints.put(192200, Sha256Hash.wrap("00000000068309e62ecddc6698872f231ff714ce123a7b2c944aa27b02a0e272"));
     }
 
     //checkpoints.cpp Checkpoints::mapCheckpointsTestnet
