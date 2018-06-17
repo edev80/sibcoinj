@@ -76,9 +76,7 @@ public class CoinDefinition {
     public static final long DUST_LIMIT = 1000; //main.h CTransaction::GetMinFee        0.01 coins
     public static final long INSTANTX_FEE = 1000000;
 
-    /* upstream release-0.14
     public static final boolean feeCanBeRaised = false;
-     */
 
     //
     // Dash 0.12.1.x
