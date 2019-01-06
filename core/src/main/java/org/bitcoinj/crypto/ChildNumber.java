@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2013 Matija Mazi.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,8 @@
  */
 
 package org.bitcoinj.crypto;
+
+import java.util.Locale;
 
 import com.google.common.primitives.Ints;
 
@@ -36,6 +38,8 @@ public class ChildNumber implements Comparable<ChildNumber> {
     public static final ChildNumber ZERO = new ChildNumber(0);
     public static final ChildNumber ONE = new ChildNumber(1);
     public static final ChildNumber ZERO_HARDENED = new ChildNumber(0, true);
+    public static final ChildNumber ONE_HARDENED = new ChildNumber(1, true);
+    public static final ChildNumber FIVE_HARDENED = new ChildNumber(5, true);
 
     /** Integer i as per BIP 32 spec, including the MSB denoting derivation type (0 = public, 1 = private) **/
     private final int i;
@@ -73,15 +77,14 @@ public class ChildNumber implements Comparable<ChildNumber> {
 
     @Override
     public String toString() {
-        return String.format("%d%s", num(), isHardened() ? "H" : "");
+        return String.format(Locale.US, "%d%s", num(), isHardened() ? "H" : "");
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ChildNumber other = (ChildNumber) o;
-        return i == other.i;
+        return i == ((ChildNumber)o).i;
     }
 
     @Override
@@ -91,6 +94,7 @@ public class ChildNumber implements Comparable<ChildNumber> {
 
     @Override
     public int compareTo(ChildNumber other) {
+        // note that in this implementation compareTo() is not consistent with equals()
         return Ints.compare(this.num(), other.num());
     }
 }

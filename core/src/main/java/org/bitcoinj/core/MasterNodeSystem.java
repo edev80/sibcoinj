@@ -4,7 +4,6 @@ import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.darkcoinj.ActiveMasterNode;
 import org.darkcoinj.DarkSendSigner;
-import org.darkcoinj.MasterNode;
 import org.darkcoinj.MasterNodePayments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,7 @@ public class MasterNodeSystem {
 
     /** The list of active masternodes */
     //std::vector<CMasterNode> vecMasternodes;
-    public ArrayList<MasterNode> vecMasternodes;
+    public ArrayList<Masternode> vecMasternodes;
     /** Object for who's going to get paid on which blocks */
     //CMasternodePayments masternodePayments;
     MasterNodePayments masternodePayments;
@@ -74,7 +73,7 @@ public class MasterNodeSystem {
         int winner = -1;
 
         // scan for winner
-        for(MasterNode mn : vecMasternodes) {
+        for(Masternode mn : vecMasternodes) {
             mn.Check();
             if(mn.protocolVersion < minProtocol) continue;
             if(!mn.IsEnabled()) {
@@ -104,7 +103,7 @@ public class MasterNodeSystem {
         //std::vector<pair<unsigned int, CTxIn> > vecMasternodeScores;
         ArrayList<Pair<Integer, TransactionInput>> vecMasternodeScores = new ArrayList<Pair<Integer, TransactionInput>>();
 
-        for(MasterNode mn : vecMasternodes)
+        for(Masternode mn : vecMasternodes)
         {
             mn.Check();
 
@@ -138,7 +137,7 @@ public class MasterNodeSystem {
         int i = 0;
 
 
-        for(MasterNode mn : vecMasternodes) {
+        for(Masternode mn : vecMasternodes) {
             if (mn.vin == vin) return i;
             i++;
         }
@@ -172,7 +171,7 @@ public class MasterNodeSystem {
     {
         ArrayList<Pair<Integer, TransactionInput>> vecMasternodeScores = new ArrayList<Pair<Integer, TransactionInput>>(vecMasternodes.size());
 
-        for(MasterNode mn : vecMasternodes) {
+        for(Masternode mn : vecMasternodes) {
             mn.Check();
             if(mn.protocolVersion < minProtocol) continue;
             if(!mn.IsEnabled()) {
@@ -233,7 +232,7 @@ public class MasterNodeSystem {
         //std::vector<pair<unsigned int, int> > vecMasternodeScores;
 
         i = 0;
-        for(MasterNode mn : vecMasternodes)
+        for(Masternode mn : vecMasternodes)
         {
             mn.Check();
             if(mn.protocolVersion < minProtocol) continue;
@@ -263,13 +262,13 @@ public class MasterNodeSystem {
 
         return -1;
     }
-    */
+
     //void ProcessMessageMasternode(CNode* pfrom, std::string& strCommand, CDataStream& vRecv);
     void processMessageMasternode(Peer peer, Message m)
     {
 
     }
-    public void processDarkSendElectionEntryPing(Peer peer, NetworkParameters params, DarkSendElectionEntryPingMessage m)
+    public void processDarkSendElectionEntryPing(Peer peer, NetworkParameters context, DarkSendElectionEntryPingMessage m)
     {
         if(DarkCoinSystem.fLiteMode) return; //disable all darksend/masternode related functionality
         //bool fIsInitialDownload = IsInitialBlockDownload();
@@ -289,7 +288,7 @@ public class MasterNodeSystem {
 
         // see if we have this masternode
 
-        for(MasterNode mn : vecMasternodes) {
+        for(Masternode mn : vecMasternodes) {
         if(mn.vin.getOutpoint() == m.vin.getOutpoint()) {
             // LogPrintf("dseep - Found corresponding mn for vin: %s\n", vin.ToString().c_str());
             // take this only if it's newer
@@ -297,7 +296,7 @@ public class MasterNodeSystem {
                 String strMessage = mn.address.toString() + m.sigTime + m.stop;
 
                 StringBuilder errorMessage = new StringBuilder();
-                if(!DarkSendSigner.verifyMessage(ECKey.fromPublicOnly(mn.pubkey2.getBytes()), m.vchSig, strMessage, errorMessage)){
+                if(!DarkSendSigner.verifyMessage(ECKey.fromPublicOnly(mn.pubKeyMasternode.getBytes()), m.vchSig, strMessage, errorMessage)){
                     log.info("dseep - Got bad masternode address signature %s \n", m.vin.toString());
                     //Misbehaving(pfrom->GetId(), 100);
                     return;
@@ -338,7 +337,7 @@ public class MasterNodeSystem {
 
         log.info("dseep - Asking source node for missing entry %s\n", m.vin.toString());
         //pfrom->PushMessage("dseg", m.vin);
-        DarkSendEntryGetMessage dseg = new DarkSendEntryGetMessage(params, m.vin);
+        DarkSendEntryGetMessage dseg = new DarkSendEntryGetMessage(context, m.vin);
         peer.sendMessage(dseg);
         long askAgain = Utils.currentTimeSeconds()+(60*60*24);
         askedForMasternodeListEntry.put(m.vin.getOutpoint(),askAgain);
@@ -349,18 +348,19 @@ public class MasterNodeSystem {
                 (addr[3] == 192 && addr[2] == 168) ||
                 (addr[3] == 172 && (addr[2] >= 16 && addr[2] <= 31));
     }
-    TransactionInput zeroInput(NetworkParameters params)
+    TransactionInput zeroInput(NetworkParameters context)
     {
-       return new TransactionInput(params, null, new byte [1], new TransactionOutPoint(params, -1, Sha256Hash.ZERO_HASH));
+       return new TransactionInput(context, null, new byte [1], new TransactionOutPoint(context, -1, Sha256Hash.ZERO_HASH));
     }
-    public void processDarkSendEntryGet(Peer peer, NetworkParameters params, DarkSendEntryGetMessage m)
+    /*
+    public void processDarkSendEntryGet(Peer peer, NetworkParameters context, DarkSendEntryGetMessage m)
     {
         if(DarkCoinSystem.fLiteMode) return; //disable all darksend/masternode related functionality
 
-        if(m.vin == zeroInput(params)) { //only should ask for this once
+        if(m.vin == zeroInput(context)) { //only should ask for this once
             //local network
             if(!peer.getAddress().getAddr().isMCSiteLocal())
-            if(IsRFC1918(peer.getAddress().getAddr().getAddress()) && params.getId().equals(NetworkParameters.ID_MAINNET))
+            if(IsRFC1918(peer.getAddress().getAddr().getAddress()) && context.getId().equals(NetworkParameters.ID_MAINNET))
             {
                 //std::map<CNetAddr, int64_t>::iterator i = askedForMasternodeList.find(pfrom->addr);
                 Long i = askedForMasternodeList.get(peer.getAddress().getAddr());
@@ -384,28 +384,28 @@ public class MasterNodeSystem {
         int count = vecMasternodes.size();
         int i = 0;
 
-        for(MasterNode mn : vecMasternodes)
+        for(Masternode mn : vecMasternodes)
         {
 
         if(IsRFC1918(mn.address.getAddr().getAddress())) continue; //local network
 
-        if(m.vin == zeroInput(params)){
+        if(m.vin == zeroInput(context)){
             mn.Check();
             if(mn.IsEnabled()) {
                 if(DarkCoinSystem.fDebug) log.info("dseg - Sending masternode entry - "+ mn.address.toString());
 
-                    DarkSendElectionEntryMessage dsee = new DarkSendElectionEntryMessage(params, mn.vin, mn.address, mn.sig, mn.now, mn.pubkey, mn.pubkey2, count, i, mn.lastTimeSeen, mn.protocolVersion);
+                    DarkSendElectionEntryMessage dsee = new DarkSendElectionEntryMessage(context, mn.vin, mn.address, mn.sig, mn.now, mn.pubkey, mn.pubKeyMasternode, count, i, mn.lastTimeSeen, mn.protocolVersion);
                     peer.sendMessage(dsee);
 
 
-                //pfrom->PushMessage("dsee", mn.vin, mn.addr, mn.sig, mn.now, mn.pubkey, mn.pubkey2, count, i, mn.lastTimeSeen, mn.protocolVersion);
+                //pfrom->PushMessage("dsee", mn.vin, mn.addr, mn.sig, mn.now, mn.pubkey, mn.pubKeyMasternode, count, i, mn.lastTimeSeen, mn.protocolVersion);
             }
         } else if (m.vin == mn.vin) {
             if(DarkCoinSystem.fDebug) log.info("dseg - Sending masternode entry - "+ peer.getAddress().toString());
 
-            DarkSendElectionEntryMessage dsee = new DarkSendElectionEntryMessage(params, mn.vin, mn.address, mn.sig, mn.now, mn.pubkey, mn.pubkey2, count, i, mn.lastTimeSeen, mn.protocolVersion);
+            DarkSendElectionEntryMessage dsee = new DarkSendElectionEntryMessage(context, mn.vin, mn.address, mn.sig, mn.now, mn.pubkey, mn.pubKeyMasternode, count, i, mn.lastTimeSeen, mn.protocolVersion);
             peer.sendMessage(dsee);
-            //pfrom->PushMessage("dsee", mn.vin, mn.addr, mn.sig, mn.now, mn.pubkey, mn.pubkey2, count, i, mn.lastTimeSeen, mn.protocolVersion);
+            //pfrom->PushMessage("dsee", mn.vin, mn.addr, mn.sig, mn.now, mn.pubkey, mn.pubKeyMasternode, count, i, mn.lastTimeSeen, mn.protocolVersion);
 
             log.info("dseg - Sent 1 masternode entries to "+  peer.getAddress().toString());
             return;
@@ -415,7 +415,9 @@ public class MasterNodeSystem {
 
         log.info("dseg - Sent "+count+" masternode entries to " + peer.getAddress().toString());
     }
-    void processDarkSendElectionEntry(Peer peer, NetworkParameters params, DarkSendElectionEntryMessage m)
+    */
+    /*
+    void processDarkSendElectionEntry(Peer peer, NetworkParameters context, DarkSendElectionEntryMessage m)
     {
 
         // make sure signature isn't in the future (past is OK)
@@ -425,10 +427,10 @@ public class MasterNodeSystem {
         }
 
         boolean isLocal = IsRFC1918(m.addr.getAddr().getAddress()) || m.addr.getAddr().isSiteLocalAddress();
-        if(params.getId().equals(NetworkParameters.ID_REGTEST)) isLocal = false;
+        if(context.getId().equals(NetworkParameters.ID_REGTEST)) isLocal = false;
 
         String vchPubKey = new String(m.pubkey.getBytes());
-        String vchPubKey2 = new String(m.pubkey2.getBytes());
+        String vchPubKey2 = new String(m.pubKeyMasternode.getBytes());
 
         String strMessage = m.addr.toString() + m.sigTime + vchPubKey + vchPubKey2 + m.protocolVersion;
 
@@ -439,7 +441,7 @@ public class MasterNodeSystem {
 
         //CScript pubkeyScript;
         ECKey pubkey1 = ECKey.fromPublicOnly(m.pubkey.getBytes());
-        Address address1 = new Address(params, pubkey1.getPubKeyHash());
+        Address address1 = new Address(context, pubkey1.getPubKeyHash());
         Script pubkeyScript = ScriptBuilder.createOutputScript(address1);
         //pubkeyScript.SetDestination(m.pubkey.GetID());
 
@@ -450,13 +452,13 @@ public class MasterNodeSystem {
         }
 
         //CScript pubkeyScript2;
-        //pubkeyScript2.SetDestination(pubkey2.GetID());
-        ECKey pubkey2 = ECKey.fromPublicOnly(m.pubkey2.getBytes());
-        Address address2 = new Address(params, pubkey2.getPubKeyHash());
+        //pubkeyScript2.SetDestination(pubKeyMasternode.GetID());
+        ECKey pubKeyMasternode = ECKey.fromPublicOnly(m.pubKeyMasternode.getBytes());
+        Address address2 = new Address(context, pubKeyMasternode.getPubKeyHash());
         Script pubkeyScript2 = ScriptBuilder.createOutputScript(address2);
 
         if(pubkeyScript.getProgram().length != 25) {
-            log.info("dsee - pubkey2 the wrong size\n");
+            log.info("dsee - pubKeyMasternode the wrong size\n");
             //Misbehaving(pfrom->GetId(), 100);
             return;
         }
@@ -469,12 +471,12 @@ public class MasterNodeSystem {
             return;
         }
 
-        if(params.getId().equals(NetworkParameters.ID_MAINNET) == false){
+        if(context.getId().equals(NetworkParameters.ID_MAINNET) == false){
             if(m.addr.getPort() != 9999) return;
         }
 
         //search existing masternode list, this is where we update existing masternodes with new dsee broadcasts
-        for (MasterNode mn : vecMasternodes)
+        for (Masternode mn : vecMasternodes)
         {
           if(mn.vin.getOutpoint() == m.vin.getOutpoint()) {
             // count == -1 when it's a new entry
@@ -486,13 +488,13 @@ public class MasterNodeSystem {
 
                 if(mn.now < m.sigTime){ //take the newest entry
                     log.info("dsee - Got updated entry for ", m.addr.toString());
-                    mn.pubkey2 = m.pubkey2;
+                    mn.pubKeyMasternode = m.pubKeyMasternode;
                     mn.now = m.sigTime;
                     mn.sig = m.vchSig;
                     mn.protocolVersion = m.protocolVersion;
                     mn.address = m.addr;
 
-                    //RelayDarkSendElectionEntry(vin, addr, vchSig, sigTime, pubkey, pubkey2, count, current, lastUpdated, protocolVersion);
+                    //RelayDarkSendElectionEntry(vin, addr, vchSig, sigTime, pubkey, pubKeyMasternode, count, current, lastUpdated, protocolVersion);
                 }
             }
 
@@ -502,7 +504,7 @@ public class MasterNodeSystem {
 
         // make sure the vout that was signed is related to the transaction that spawned the masternode
         //  - this is expensive, so it's only done once per masternode
-        if(!DarkSendSigner.isVinAssociatedWithPubkey(params, m.vin, m.pubkey)) {
+        if(!DarkSendSigner.isVinAssociatedWithPubkey(context, m.vin, m.pubkey)) {
             log.info("dsee - Got mismatched pubkey and vin\n");
             //Misbehaving(pfrom->GetId(), 100);
             return;
@@ -514,52 +516,53 @@ public class MasterNodeSystem {
         //  - this is checked later by .check() in many places and by ThreadCheckDarkSendPool()
 
         //CValidationState state;
-        //Transaction tx = new Transaction(params);
-        //TransactionOutput vout = new TransactionOutput(params, null, Coin.valueOf(999, 99), ECKey.fromPublicOnly(DarkSend.darkSendPool.collateralPubKey));
+        //Transaction tx = new Transaction(context);
+        //TransactionOutput vout = new TransactionOutput(context, null, Coin.valueOf(999, 99), ECKey.fromPublicOnly(DarkSend.darkSendPool.collateralPubKey));
         //tx.vin.push_back(vin);
         //tx.addInput(m.vin);
 
         //tx.vout.push_back(vout);
         //tx.addOutput(vout);
 
-        if(true /*AcceptableInputs(mempool, state, tx)*/){
+        //if(true AcceptableInputs(mempool, state, tx))
+        {
             if(DarkCoinSystem.fDebug) log.info("dsee - Accepted masternode entry "+ m.count + " "+ m.current);
 
-            /*if(GetInputAge(vin) < MASTERNODE_MIN_CONFIRMATIONS){
+            if(GetInputAge(vin) < MASTERNODE_MIN_CONFIRMATIONS){
                 LogPrintf("dsee - Input must have least %d confirmations\n", MASTERNODE_MIN_CONFIRMATIONS);
                 Misbehaving(pfrom->GetId(), 20);
                 return;
-            }*/
+            }
 
             // use this as a peer
             //addrman.Add(CAddress(addr), pfrom->addr, 2*60*60);
 
             // add our masternode
-            MasterNode mn = new MasterNode(m.addr, m.vin, m.pubkey, m.vchSig, m.sigTime, m.pubkey2, m.protocolVersion);
+            Masternode mn = new Masternode(m.addr, m.vin, m.pubkey, m.vchSig, m.sigTime, m.pubKeyMasternode, m.protocolVersion);
             mn.UpdateLastSeen(m.lastUpdated);
             vecMasternodes.add(mn);
 
             // if it matches our masternodeprivkey, then we've been remotely activated
-            if(m.pubkey2 == activeMasternode.pubKeyMasternode && m.protocolVersion == NetworkParameters.PROTOCOL_VERSION){
+            if(m.pubKeyMasternode == activeMasternode.pubKeyMasternode && m.protocolVersion == NetworkParameters.PROTOCOL_VERSION){
                 activeMasternode.EnableHotColdMasterNode(m.vin, m.addr);
             }
 
            //if(count == -1 && !isLocal)
-           //     RelayDarkSendElectionEntry(vin, addr, vchSig, sigTime, pubkey, pubkey2, count, current, lastUpdated, protocolVersion);
+           //     RelayDarkSendElectionEntry(vin, addr, vchSig, sigTime, pubkey, pubKeyMasternode, count, current, lastUpdated, protocolVersion);
 
         } else {
             log.info("dsee - Rejected masternode entry %s"+ m.addr.toString());
 
-            /*int nDoS = 0;
+            int nDoS = 0;
             if (state.IsInvalid(nDoS))
             {
                 log.info("dsee - %s from %s %s was not accepted into the memory pool\n", tx.GetHash().ToString().c_str(),
                         pfrom -> addr.ToString().c_str(), pfrom -> cleanSubVer.c_str());
                 if (nDoS > 0)
                     Misbehaving(pfrom->GetId(), nDoS);
-            }*/
-        }
-    }
+            }
+           }
+    }*/
 
     public static MasterNodeSystem mns;
     public static MasterNodeSystem get() {

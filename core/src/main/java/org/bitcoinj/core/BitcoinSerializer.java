@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2011 Google Inc.
  * Copyright 2014 Andreas Schildbach
  *
@@ -37,19 +37,18 @@ import static org.bitcoinj.core.Utils.*;
  *
  * <ul>
  * <li>The proper Class instance needs to be mapped to its message name in the names variable below</li>
- * <li>There needs to be a constructor matching: NetworkParameters params, byte[] payload</li>
+ * <li>There needs to be a constructor matching: NetworkParameters context, byte[] payload</li>
  * <li>Message.bitcoinSerializeToStream() needs to be properly subclassed</li>
  * </ul>
  */
-public class BitcoinSerializer {
+public class BitcoinSerializer extends MessageSerializer {
     private static final Logger log = LoggerFactory.getLogger(BitcoinSerializer.class);
     private static final int COMMAND_LEN = 12;
 
-    private NetworkParameters params;
-    private boolean parseLazy = false;
-    private boolean parseRetain = false;
+    private final NetworkParameters params;
+    private final boolean parseRetain;
 
-    private static Map<Class<? extends Message>, String> names = new HashMap<Class<? extends Message>, String>();
+    private static final Map<Class<? extends Message>, String> names = new HashMap<Class<? extends Message>, String>();
 
     static {
         names.put(VersionMessage.class, "version");
@@ -73,11 +72,19 @@ public class BitcoinSerializer {
         names.put(GetUTXOsMessage.class, "getutxos");
         names.put(UTXOsMessage.class, "utxos");
 
-        //Darkcoin specific messages
+        //Dash specific messages
         names.put(DarkSendElectionEntryPingMessage.class, "dseep");
 
-        names.put(TransactionLockRequest.class, "txlreq");
-        names.put(ConsensusVote.class, "txlvote");
+        names.put(TransactionLockRequest.class, "ix");
+        names.put(TransactionLockVote.class, "txlvote");
+
+        names.put(MasternodeBroadcast.class, "mnb");
+        names.put(MasternodePing.class, "mnp");
+        names.put(SporkMessage.class, "spork");
+        names.put(GetSporksMessage.class, "getsporks");
+        names.put(DarkSendEntryGetMessage.class, "dseg");
+        names.put(SyncStatusCount.class, "ssc");
+
 
     }
 
@@ -85,27 +92,17 @@ public class BitcoinSerializer {
      * Constructs a BitcoinSerializer with the given behavior.
      *
      * @param params           networkParams used to create Messages instances and termining packetMagic
-     */
-    public BitcoinSerializer(NetworkParameters params) {
-        this(params, false, false);
-    }
-
-    /**
-     * Constructs a BitcoinSerializer with the given behavior.
-     *
-     * @param params           networkParams used to create Messages instances and termining packetMagic
-     * @param parseLazy        deserialize messages in lazy mode.
      * @param parseRetain      retain the backing byte array of a message for fast reserialization.
      */
-    public BitcoinSerializer(NetworkParameters params, boolean parseLazy, boolean parseRetain) {
+    public BitcoinSerializer(NetworkParameters params, boolean parseRetain) {
         this.params = params;
-        this.parseLazy = parseLazy;
         this.parseRetain = parseRetain;
     }
 
     /**
      * Writes message to to the output stream.
      */
+    @Override
     public void serialize(String name, byte[] message, OutputStream out) throws IOException {
         byte[] header = new byte[4 + COMMAND_LEN + 4 + 4 /* checksum */];
         uint32ToByteArrayBE(params.getPacketMagic(), header, 0);
@@ -130,6 +127,7 @@ public class BitcoinSerializer {
     /**
      * Writes message to to the output stream.
      */
+    @Override
     public void serialize(Message message, OutputStream out) throws IOException {
         String name = names.get(message.getClass());
         if (name == null) {
@@ -141,11 +139,12 @@ public class BitcoinSerializer {
     /**
      * Reads a message from the given ByteBuffer and returns it.
      */
+    @Override
     public Message deserialize(ByteBuffer in) throws ProtocolException, IOException {
         // A Bitcoin protocol message has the following format.
         //
-        //   - 4 byte magic number: 0xfabfb5da for the testnet or
-        //                          0xf9beb4d9 for production
+        //   - 4 byte magic number: 0xcee2caff for the testnet or
+        //                          0xbf0c6bbd for production
         //   - 12 byte command in ASCII
         //   - 4 byte payload size
         //   - 4 byte checksum
@@ -154,7 +153,7 @@ public class BitcoinSerializer {
         // The checksum is the first 4 bytes of a SHA256 hash of the message payload. It isn't
         // present for all messages, notably, the first one on a connection.
         //
-        // Satoshi's implementation ignores garbage before the magic header bytes. We have to do the same because
+        // Bitcoin Core ignores garbage before the magic header bytes. We have to do the same because
         // sometimes it sends us stuff that isn't part of any message.
         seekPastMagicBytes(in);
         BitcoinPacketHeader header = new BitcoinPacketHeader(in);
@@ -166,6 +165,7 @@ public class BitcoinSerializer {
      * Deserializes only the header in case packet meta data is needed before decoding
      * the payload. This method assumes you have already called seekPastMagicBytes()
      */
+    @Override
     public BitcoinPacketHeader deserializeHeader(ByteBuffer in) throws ProtocolException, IOException {
         return new BitcoinPacketHeader(in);
     }
@@ -174,6 +174,7 @@ public class BitcoinSerializer {
      * Deserialize payload only.  You must provide a header, typically obtained by calling
      * {@link BitcoinSerializer#deserializeHeader}.
      */
+    @Override
     public Message deserializePayload(BitcoinPacketHeader header, ByteBuffer in) throws ProtocolException, BufferUnderflowException {
         byte[] payloadBytes = new byte[header.size];
         in.get(payloadBytes, 0, header.size);
@@ -205,25 +206,22 @@ public class BitcoinSerializer {
         Message message;
         if (command.equals("version")) {
             return new VersionMessage(params, payloadBytes);
-        } else if (command.equals("inv")) {
-            message = new InventoryMessage(params, payloadBytes, parseLazy, parseRetain, length);
+        } else if (command.equals("inv")) { 
+            message = makeInventoryMessage(payloadBytes, length);
         } else if (command.equals("block")) {
-            message = new Block(params, payloadBytes, parseLazy, parseRetain, length);
+            message = makeBlock(payloadBytes, length);
         } else if (command.equals("merkleblock")) {
-            message = new FilteredBlock(params, payloadBytes);
+            message = makeFilteredBlock(payloadBytes);
         } else if (command.equals("getdata")) {
-            message = new GetDataMessage(params, payloadBytes, parseLazy, parseRetain, length);
+            message = new GetDataMessage(params, payloadBytes, this, length);
         } else if (command.equals("getblocks")) {
             message = new GetBlocksMessage(params, payloadBytes);
         } else if (command.equals("getheaders")) {
             message = new GetHeadersMessage(params, payloadBytes);
         } else if (command.equals("tx")) {
-            Transaction tx = new Transaction(params, payloadBytes, null, parseLazy, parseRetain, length);
-            if (hash != null)
-                tx.setHash(Sha256Hash.wrapReversed(hash));
-            message = tx;
+            message = makeTransaction(payloadBytes, 0, length, hash);
         } else if (command.equals("addr")) {
-            message = new AddressMessage(params, payloadBytes, parseLazy, parseRetain, length);
+            message = makeAddressMessage(payloadBytes, length);
         } else if (command.equals("ping")) {
             message = new Ping(params, payloadBytes);
         } else if (command.equals("pong")) {
@@ -233,9 +231,9 @@ public class BitcoinSerializer {
         } else if (command.equals("headers")) {
             return new HeadersMessage(params, payloadBytes);
         } else if (command.equals("alert")) {
-            return new AlertMessage(params, payloadBytes);
+            return makeAlertMessage(payloadBytes);
         } else if (command.equals("filterload")) {
-            return new BloomFilter(params, payloadBytes);
+            return makeBloomFilter(payloadBytes);
         } else if (command.equals("notfound")) {
             return new NotFoundMessage(params, payloadBytes);
         } else if (command.equals("mempool")) {
@@ -248,19 +246,110 @@ public class BitcoinSerializer {
             return new GetUTXOsMessage(params, payloadBytes);
         } else if (command.equals("dseep")) {
             return new DarkSendElectionEntryPingMessage(params, payloadBytes);
-        } else if (command.equals("txlreq")) {
+        } else if (command.equals("ix")) {
             return new TransactionLockRequest(params, payloadBytes);
         } else if (command.equals("txlvote")) {
-            return new ConsensusVote(params, payloadBytes);
-        } else {
+            return new TransactionLockVote(params, payloadBytes);
+        } else if (command.equals("dsq")) {
+            return new DarkSendQueue(params, payloadBytes);
+        } else if (command.equals("mnb")) {
+            return new MasternodeBroadcast(params, payloadBytes);
+        } else if( command.equals("mnp")) {
+            return new MasternodePing(params, payloadBytes);
+        } else if (command.equals("spork")) {
+            return new SporkMessage(params, payloadBytes, 0);
+        } else if(command.equals("ssc")) {
+            return new SyncStatusCount(params, payloadBytes);
+        } else if(command.equals("sendheaders")) {
+            return new SendHeadersMessage(params);
+        } else if(command.equals("getsporks")) {
+            return new GetSporksMessage(params);
+        }
+        else if(command.equals("govsync")) {
+            return new GovernanceSyncMessage(params);
+        }
+        else{
             log.warn("No support for deserializing message with name {}", command);
             return new UnknownMessage(params, command, payloadBytes);
         }
-        if (checksum != null)
-            message.setChecksum(checksum);
         return message;
     }
 
+    /**
+     * Get the network parameters for this serializer.
+     */
+    public NetworkParameters getParameters() {
+        return params;
+    }
+
+    /**
+     * Make an address message from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public AddressMessage makeAddressMessage(byte[] payloadBytes, int length) throws ProtocolException {
+        return new AddressMessage(params, payloadBytes, this, length);
+    }
+
+    /**
+     * Make an alert message from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public Message makeAlertMessage(byte[] payloadBytes) throws ProtocolException {
+        return new AlertMessage(params, payloadBytes);
+    }
+
+    /**
+     * Make a block from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public Block makeBlock(final byte[] payloadBytes, final int offset, final int length) throws ProtocolException {
+        return new Block(params, payloadBytes, offset, this, length);
+    }
+
+    /**
+     * Make an filter message from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public Message makeBloomFilter(byte[] payloadBytes) throws ProtocolException {
+        return new BloomFilter(params, payloadBytes);
+    }
+
+    /**
+     * Make a filtered block from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public FilteredBlock makeFilteredBlock(byte[] payloadBytes) throws ProtocolException {
+        return new FilteredBlock(params, payloadBytes);
+    }
+
+    /**
+     * Make an inventory message from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public InventoryMessage makeInventoryMessage(byte[] payloadBytes, int length) throws ProtocolException {
+        return new InventoryMessage(params, payloadBytes, this, length);
+    }
+
+    /**
+     * Make a transaction from the payload. Extension point for alternative
+     * serialization format support.
+     */
+    @Override
+    public Transaction makeTransaction(byte[] payloadBytes, int offset,
+        int length, byte[] hash) throws ProtocolException {
+        Transaction tx = new Transaction(params, payloadBytes, offset, null, this, length);
+        if (hash != null)
+            tx.setHash(Sha256Hash.wrapReversed(hash));
+        return tx;
+    }
+
+    @Override
     public void seekPastMagicBytes(ByteBuffer in) throws BufferUnderflowException {
         int magicCursor = 3;  // Which byte of the magic we're looking for currently.
         while (true) {
@@ -283,15 +372,9 @@ public class BitcoinSerializer {
     }
 
     /**
-     * Whether the serializer will produce lazy parse mode Messages
-     */
-    public boolean isParseLazyMode() {
-        return parseLazy;
-    }
-
-    /**
      * Whether the serializer will produce cached mode Messages
      */
+    @Override
     public boolean isParseRetainMode() {
         return parseRetain;
     }
@@ -323,7 +406,7 @@ public class BitcoinSerializer {
             size = (int) readUint32(header, cursor);
             cursor += 4;
 
-            if (size > Message.MAX_SIZE)
+            if (size > Message.MAX_SIZE || size < 0)
                 throw new ProtocolException("Message size too large: " + size);
 
             // Old clients don't send the checksum.

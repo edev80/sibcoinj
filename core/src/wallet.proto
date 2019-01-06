@@ -120,8 +120,8 @@ message Key {
   // User-provided label associated with the key.
   optional string label = 4;
 
-  // Timestamp stored as millis since epoch. Useful for skipping block bodies before this point. Only reason it's
-  // optional is that some very old wallets don't have this data.
+  // Timestamp stored as millis since epoch. Useful for skipping block bodies before this point. The reason it's
+  // optional is that keys derived from a parent don't have this data.
   optional int64 creation_timestamp = 5;
 
   optional DeterministicKey deterministic_key = 7;
@@ -132,6 +132,9 @@ message Key {
 
   // Encrypted version of the seed
   optional EncryptedData encrypted_deterministic_seed = 9;
+
+  // The path to the root. Only applicable to a DETERMINISTIC_MNEMONIC key entry.
+  repeated uint32 account_path = 10 [packed = true];
 }
 
 message Script {
@@ -149,7 +152,7 @@ message TransactionInput {
   required uint32 transaction_out_point_index = 2;
   // Script that contains the signatures/pubkeys.
   required bytes script_bytes = 3;
-  // Sequence number. Currently unused, but intended for contracts in future.
+  // Sequence number.
   optional uint32 sequence = 4;
   // Value of connected output, if known
   optional int64 value = 5;
@@ -172,13 +175,13 @@ message TransactionOutput {
  */
 message TransactionConfidence {
   enum Type {
+    // See TransactionConfidence.java for a more thorough explanation of these types.
     UNKNOWN = 0;
     BUILDING = 1; // In best chain.  If and only if appeared_at_height is present.
     PENDING = 2; // Unconfirmed and sitting in the networks memory pools, waiting to be included in the chain.
     NOT_IN_BEST_CHAIN = 3; // Deprecated: equivalent to PENDING.
-    DEAD = 4; // Either if overriding_transaction is present or transaction is dead coinbase
-    INSTANTX_PENDING = 100;
-    INSTANTX_LOCKED = 101;
+    DEAD = 4; // Either if overriding_transaction is present or transaction is dead coinbase.
+    IN_CONFLICT = 5; // There is another transaction spending one of this transaction inputs.
   }
 
   // This is optional in case we add confidence types to prevent parse errors - backwards compatible.
@@ -201,6 +204,9 @@ message TransactionConfidence {
 
   repeated PeerAddress broadcast_by = 6;
 
+  // Millis since epoch the transaction was last announced to us.
+  optional int64 last_broadcasted_at = 8;
+
   // Where did we get this transaction from? Knowing the source may help us to risk analyze pending transactions.
   enum Source {
     SOURCE_UNKNOWN = 0;  // We don't know where it came from, or this is a wallet from the future.
@@ -212,6 +218,16 @@ message TransactionConfidence {
     // - from a wallet that uses trusted computing/secure hardware that won't create double spends
   }
   optional Source source = 7;
+
+  enum IXType {
+    IX_NONE = 0;
+    IX_REQUEST = 1;
+    IX_LOCKED = 2;
+  }
+
+  optional IXType ixType = 19 [default = IX_NONE];
+
+  // Next tag: 9
 }
 
 /** A bitcoin transaction */
@@ -235,9 +251,6 @@ message Transaction {
     DEAD = 10; // Double-spent by a transaction in the best chain
     PENDING = 16; // Our transaction, not in any chain
     PENDING_INACTIVE = 18; // In non-best chain, our transaction
-    INSTANTX_PENDING = 48;
-    INSTANTX_LOCKED = 49;
-
   }
 
   // See Wallet.java for detailed description of pool semantics

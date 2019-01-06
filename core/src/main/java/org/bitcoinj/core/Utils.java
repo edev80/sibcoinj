@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2011 Google Inc.
  * Copyright 2014 Andreas Schildbach
  *
@@ -52,7 +52,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 public class Utils {
 
     /** The string that prefixes all text messages signed using Bitcoin keys. */
-    public static final String BITCOIN_SIGNED_MESSAGE_HEADER = CoinDefinition.coinName + " Signed Message:\n";
+    public static final String BITCOIN_SIGNED_MESSAGE_HEADER = "DarkCoin Signed Message:\n";  //Dash use DarkCoin here
     public static final byte[] BITCOIN_SIGNED_MESSAGE_HEADER_BYTES = BITCOIN_SIGNED_MESSAGE_HEADER.getBytes(Charsets.UTF_8);
 
     private static final Joiner SPACE_JOINER = Joiner.on(" ");
@@ -185,35 +185,40 @@ public class Utils {
             }
         }
         return rev;
-}
+    }
 
+    /** Parse 4 bytes from the byte array (starting at the offset) as unsigned 32-bit integer in little endian format. */
     public static long readUint32(byte[] bytes, int offset) {
-        return (bytes[offset++] & 0xFFL) |
-                ((bytes[offset++] & 0xFFL) << 8) |
-                ((bytes[offset++] & 0xFFL) << 16) |
-                ((bytes[offset] & 0xFFL) << 24);
+        return (bytes[offset] & 0xffl) |
+                ((bytes[offset + 1] & 0xffl) << 8) |
+                ((bytes[offset + 2] & 0xffl) << 16) |
+                ((bytes[offset + 3] & 0xffl) << 24);
     }
-    
+
+    /** Parse 8 bytes from the byte array (starting at the offset) as signed 64-bit integer in little endian format. */
     public static long readInt64(byte[] bytes, int offset) {
-        return (bytes[offset++] & 0xFFL) |
-               ((bytes[offset++] & 0xFFL) << 8) |
-               ((bytes[offset++] & 0xFFL) << 16) |
-               ((bytes[offset++] & 0xFFL) << 24) |
-               ((bytes[offset++] & 0xFFL) << 32) |
-               ((bytes[offset++] & 0xFFL) << 40) |
-               ((bytes[offset++] & 0xFFL) << 48) |
-               ((bytes[offset] & 0xFFL) << 56);
+        return (bytes[offset] & 0xffl) |
+               ((bytes[offset + 1] & 0xffl) << 8) |
+               ((bytes[offset + 2] & 0xffl) << 16) |
+               ((bytes[offset + 3] & 0xffl) << 24) |
+               ((bytes[offset + 4] & 0xffl) << 32) |
+               ((bytes[offset + 5] & 0xffl) << 40) |
+               ((bytes[offset + 6] & 0xffl) << 48) |
+               ((bytes[offset + 7] & 0xffl) << 56);
     }
 
+    /** Parse 4 bytes from the byte array (starting at the offset) as unsigned 32-bit integer in big endian format. */
     public static long readUint32BE(byte[] bytes, int offset) {
-        return ((bytes[offset] & 0xFFL) << 24) |
-                ((bytes[offset + 1] & 0xFFL) << 16) |
-                ((bytes[offset + 2] & 0xFFL) << 8) |
-                (bytes[offset + 3] & 0xFFL);
+        return ((bytes[offset] & 0xffl) << 24) |
+                ((bytes[offset + 1] & 0xffl) << 16) |
+                ((bytes[offset + 2] & 0xffl) << 8) |
+                (bytes[offset + 3] & 0xffl);
     }
 
+    /** Parse 2 bytes from the byte array (starting at the offset) as unsigned 16-bit integer in big endian format. */
     public static int readUint16BE(byte[] bytes, int offset) {
-        return ((bytes[offset] & 0xff) << 8) | bytes[offset + 1] & 0xff;
+        return ((bytes[offset] & 0xff) << 8) |
+                (bytes[offset + 1] & 0xff);
     }
 
     /**
@@ -335,6 +340,27 @@ public class Utils {
         return result;
     }
 
+    /**
+     * @see Utils#decodeCompactBits(long)
+     */
+    public static long encodeCompactBits(BigInteger value, boolean negative) {
+        long result;
+        int size = value.toByteArray().length;
+        if (size <= 3)
+            result = value.longValue() << 8 * (3 - size);
+        else
+            result = value.shiftRight(8 * (size - 3)).longValue();
+        // The 0x00800000 bit denotes the sign.
+        // Thus, if it is already set, divide the mantissa by 256 and increase the exponent.
+        if ((result & 0x00800000L) != 0) {
+            result >>= 8;
+            size++;
+        }
+        result |= size << 24;
+        //result |= value.signum() == -1 ? 0x00800000 : 0;
+        result |= (negative && (result & 0x007fffff) !=0 ? 0x00800000 : 0);
+        return result;
+    }
     /**
      * If non-null, overrides the return value of now().
      */
@@ -515,6 +541,21 @@ public class Utils {
             throw new RuntimeException(e);  // Cannot happen.
         }
     }
+
+    public static byte[] formatMessageForSigning(byte[] message) {
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            bos.write(BITCOIN_SIGNED_MESSAGE_HEADER_BYTES.length);
+            bos.write(BITCOIN_SIGNED_MESSAGE_HEADER_BYTES);
+            byte[] messageBytes = message;
+            VarInt size = new VarInt(messageBytes.length);
+            bos.write(size.encode());
+            bos.write(messageBytes);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);  // Cannot happen.
+        }
+    }
     
     // 00000001, 00000010, 00000100, 00001000, ...
     private static final int[] bitMask = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
@@ -579,6 +620,7 @@ public class Utils {
     private static class Pair implements Comparable<Pair> {
         int item, count;
         public Pair(int item, int count) { this.count = count; this.item = item; }
+        // note that in this implementation compareTo() is not consistent with equals()
         @Override public int compareTo(Pair o) { return -Ints.compare(count, o.count); }
     }
 
@@ -640,5 +682,69 @@ public class Utils {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    static final String CHARS_ALPHA_NUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    static final String SAFE_CHARS[] =
+            {
+                    CHARS_ALPHA_NUM + " .,;-_/:?@()", // SAFE_CHARS_DEFAULT
+                    CHARS_ALPHA_NUM + " .,;-_?@" // SAFE_CHARS_UA_COMMENT
+            };
+
+    static public String sanitizeString(String str, int rule)
+    {
+        StringBuilder strResult = new StringBuilder();
+        for (int i = 0; i < str.length(); i++)
+        {
+            if (SAFE_CHARS[rule].indexOf(str.charAt(i)) != -1)
+            strResult.append(str.charAt(i));
+        }
+        return strResult.toString();
+    }
+    static public String sanitizeString(String str) { return sanitizeString(str, 0); }
+
+    public static long getTotalCoinEstimate(int nHeight)
+    {
+        long nTotalCoins = 0;
+
+        // TODO: This could be vastly improved, look at GetBlockValue for a better method
+
+    /* these values are taken from the block explorer */
+        if(nHeight > 5076) nTotalCoins += 2021642;
+        if(nHeight > 17000) nTotalCoins += 3267692-2021642;
+        if(nHeight > 34000) nTotalCoins += 3688775-3267692;
+        if(nHeight > 68000) nTotalCoins += 4277615-3688775;
+
+        if(nHeight > 68000*2) {
+            nTotalCoins += 4649913.99999995-4277615;
+        } else {
+            return nTotalCoins;
+        }
+
+        //5.383754730451325 per block average after this
+        nTotalCoins += ((nHeight-68000*2)*((5382104.64334133-4649913.99999995)/(68000*2)));
+
+        // TODO: this should include the 7.1% decline too
+        return nTotalCoins;
+    }
+    static double convertBitsToDouble(long nBits){
+        long nShift = (nBits >> 24) & 0xff;
+
+        double dDiff =
+                (double)0x0000ffff / (double)(nBits & 0x00ffffff);
+
+        while (nShift < 29)
+        {
+            dDiff *= 256.0;
+            nShift++;
+        }
+        while (nShift > 29)
+        {
+            dDiff /= 256.0;
+            nShift--;
+        }
+
+        return dDiff;
     }
 }
